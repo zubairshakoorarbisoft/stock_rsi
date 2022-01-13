@@ -19,8 +19,8 @@
             <tbody>
               {% for wl_i in wl_items %}
                 <tr>
-                  <td>{{wl_i['close_date'].strftime('%d, %b %Y')}}</td>
-                  <td>{{wl_i['close_price']}}</td>
+                  <td>{{'Not Pulled' if wl_i['close_date'] == None else wl_i['close_date'].strftime('%d, %b %Y')}}</td>
+                  <td>{{'Not Pulled' if wl_i['close_price'] == None else wl_i['close_price']}}</td>
                   <td>{{wl_i['company']}}</td>
                   <td>{{wl_i['symbol']}}</td>
                   <td>{{wl_i['name']}}</td>

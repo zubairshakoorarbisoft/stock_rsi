@@ -5,10 +5,11 @@
     <div class="col-md-12">
         <form method="POST" action="/" enctype="multipart/form-data">
             <strong>Upload your CSV file here..</strong>
-        <p><input class="btn btn-sm" type="file" name="file" accept=".csv"> <input class="btn btn-primary" type="submit" value="Import"></p>
-        <p>Last Pulled on: <strong>{{last_pulled_date.strftime('%d, %b %Y')}}</strong></p>
-        <p><a id="btnPullData" class="btn btn-sm btn-primary {{'disabled' if allow_pull }}" onclick="pullPriceData()"{% if not allow_pull %} disabled {% endif %} >Pull Prices</a></p>
-        </form>
+        <p><input class="btn btn-sm btn-primary" type="file" name="file" accept=".csv"> <input class="btn btn-primary" type="submit" value="Import"></p>
+        <p>Last Pulled on: <strong>{{last_pulled}}</strong></p>
+        <p><button type="button" id="btnPullData"  data-bs-toggle="modal" data-bs-target="#pullDataConfirmationModal" class="btn btn-sm btn-primary {{'disabled' if not allow_pull }}" {% if not allow_pull %} disabled {% endif %} >Pull Prices</button> | <a class="btn btn-sm btn-info" target="_blank" href="/view-pull-data-history" >Pull History</a></p>
+        <p><strong><span id="pullStatus" class="text-success"></span></strong></p>
+      </form>
     </div>
 </div>
 <div class="row">
@@ -34,16 +35,47 @@
 </div>
 
 
+
+<div class="modal fade" tabindex="-1" id="pullDataConfirmationModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmation Alert</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label>1. Yahoo Finance API:</label>
+        <p>When you click Pull Price, it would pull the data for last 200 days. If there is already 200 days data there, then just pull the data for selected days till today to complete recent 200 days data</p>
+        <label>2. Gurufocus API:</label>
+        <p class="text-danger">When you click Pull Price, it would first delete all existing data for Gurufocus API and will pull data for last 300 days for every ticker of Gurufocus CSV file records, There is 1 minute wait for a request so due to this, it may take some time, <strong>Can calculate by Number of Records in CSV X 1 minute + 2 minutes. E.G. 32X1+2=34 Minutes and 10 minutes of Yahoo API</strong></p>
+        <h3>Are you sure you want to continue?</h3>
+      </div>
+      <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-bs-dismiss="modal" >No</button>
+          <a class="btn btn-sm btn-danger" onclick="pullPriceData()" data-bs-dismiss="modal">Yes</a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
     $(document).ready( function () {
     $('#data').DataTable();
   });
 
   function pullPriceData(){
+        $('#btnPullData').addClass('disabled');
+        $('#pullStatus').text('Pulling Price Data ...')
         $.get("http://localhost:8000/pull-price-data",
         function(data, status){
-          debugger
-            $('#btnPullData').addClass('disabled');
+          if(status === 'success'){
+            window.location.reload();
+          }
+          else{
+            alert('Something Went Wrong!');
+            console.log(data);
+            console.log(status);
+          }
         })
     }
 </script>
