@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <form method="POST" action="/" enctype="multipart/form-data">
+            <strong>Upload your CSV file here..</strong>
+        <p><input class="btn btn-sm" type="file" name="file" accept=".csv"> <input class="btn btn-primary" type="submit" value="Import"></p>
+        <p>Last Pulled on: <strong>{{last_pulled_date.strftime('%d, %b %Y')}}</strong></p>
+        <p><a id="btnPullData" class="btn btn-sm btn-primary {{'disabled' if allow_pull }}" onclick="pullPriceData()"{% if not allow_pull %} disabled {% endif %} >Pull Prices</a></p>
+        </form>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <table id="data" class="table table-striped" style="width: 100%;">
+            <thead>
+              <tr>
+                <th>Company Name</th>
+                <th>Ticker Symbol</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in csv_records %}
+                <tr>
+                  <td>{{ r['company'] }}</td>
+                  <td>{{ r['symbol'] }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+    </div>
+</div>
+
+
+<script>
+    $(document).ready( function () {
+    $('#data').DataTable();
+  });
+
+  function pullPriceData(){
+        $.get("http://localhost:8000/pull-price-data",
+        function(data, status){
+          debugger
+            $('#btnPullData').addClass('disabled');
+        })
+    }
+</script>
+
+{% endblock %}

@@ -1,0 +1,131 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="row mt-1">
+    <div class="col-md-12">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWatchlistModal">+</button>
+        <table id="data" class="table table-striped" style="width: 100%;">
+            <thead>
+              <tr>
+                <th>Watchlist</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in watchlist_records %}
+                <tr>
+                  <td><a href="#" id="{{r['id']}}" name="{{r['name']}}" onclick='showEditModal(this)'>{{ r['name'] }}</a></td>
+                  <td><button class="btn btn-sm btn-danger" name="{{r['name']}}" href="/watchlist?id={{r['id']}}" onclick="showDelModal(this)">Remove</button> | <a class="btn btn-sm btn-info" target="_blank" href="/view-watchlist?watchlist_id={{r['id']}}&watchlist_name={{r['name']}}">View</a></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+    </div>
+</div>
+
+<div class="modal fade" tabindex="-1" id="delWatchlistModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Are you sure, you want to delete <span id="wlToDel"></span> ?</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-bs-dismiss="modal" >No</button>
+            <a class="btn btn-sm btn-danger" id="btnConfrimDel">Yes</a>
+        </div>
+      </div>
+    </div>
+</div>
+
+
+<div class="modal fade" tabindex="-1" id="addWatchlistModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add Watchlist</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <label>Name</label>
+          <input class="form-control" type="text" placeholder="Enter watchlist name" id="watchlistName" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnAddWatchlist">Add</button>
+        </div>
+      </div>
+    </div>
+</div>
+
+
+  <div class="modal fade" tabindex="-1" id="editWatchlistModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Update Watchlist</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <label>Name</label>
+          <input hidden id="watchlistIdEdit" />
+          <input class="form-control" type="text" placeholder="Enter watchlist name" id="watchlistNameEdit" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnEditWatchlist">Update</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+<script>
+    $(document).ready( function () {
+    $('#data').DataTable();
+    $('#btnAddWatchlist').click(function () {
+        if(!(!!$('#watchlistName').val())){
+            alert('Name is required')
+            return false;
+        }
+
+        $.post("http://localhost:8000/watchlist",
+        {
+            name: $('#watchlistName').val(),
+        },
+        function(data, status){
+            window.location.href = '/watchlist'
+        })
+        })
+    });
+
+    $('#btnEditWatchlist').click(function () {
+        if(!(!!$('#watchlistNameEdit').val())){
+            alert('Name is required')
+            return false;
+        }
+        $.post("http://localhost:8000/watchlist",
+        {
+            id: $('#watchlistIdEdit').val(),
+            name: $('#watchlistNameEdit').val()
+        },
+        function(data, status){
+            window.location.href = '/watchlist'
+        })
+    });
+
+    function showEditModal(element) {
+        $('#watchlistIdEdit').val(element.attributes['id'].value);
+        $('#watchlistNameEdit').val(element.attributes['name'].value);
+        $('#editWatchlistModal').modal('show');
+    }
+
+    function showDelModal(element){
+        $('#btnConfrimDel').attr('href', element.attributes['href'].value)
+        $('#wlToDel').text(element.attributes['name'].value);
+        $('#delWatchlistModal').modal('show');
+    }
+</script>
+
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="row mt-1">
+    <div class="col-md-12">
+        <h4>Price Data For ["{{model['symbol']}}"] Ticker</h4>
+        <table id="data" class="table table-striped" style="width: 100%;">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Close</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for index, value in model["data"] %}
+                <tr>
+                  <td>{{model["dates"][index].strftime('%d, %b %Y')}}</td>
+                  <td>{{value["close"]}}</td>
+                  <td>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+    </div>
+</div>
+
+
+<script>
+    $(document).ready( function () {
+    $('#data').DataTable();
+    });
+</script>
+
+{% endblock %}
