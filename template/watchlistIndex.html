@@ -15,8 +15,8 @@
             <tbody>
               {% for r in watchlist_records %}
                 <tr>
-                  <td><a href="#" id="{{r['id']}}" name="{{r['name']}}" onclick='showEditModal(this)'>{{ r['name'] }}</a></td>
-                  <td><button class="btn btn-sm btn-danger" name="{{r['name']}}" href="/watchlist?id={{r['id']}}" onclick="showDelModal(this)">Remove</button> | <a class="btn btn-sm btn-info" target="_blank" href="/view-watchlist?watchlist_id={{r['id']}}&watchlist_name={{r['name']}}">View</a></td>
+                  <td><a href="/view-watchlist?watchlist_id={{r['id']}}&watchlist_name={{r['name']}}">{{ r['name'] }}</a></td>
+                  <td><button class="btn btn-sm btn-danger" name="{{r['name']}}" href="/watchlist?id={{r['id']}}" onclick="showDelModal(this)">Remove</button> | <a class="btn btn-sm btn-primary" id="{{r['id']}}" name="{{r['name']}}" onclick='showEditModal(this)'>Rename</a></td>
                 </tr>
               {% endfor %}
             </tbody>

@@ -8,7 +8,7 @@ from flask import request
 from helper_functions import parse_csv
 from constants import DATABASE, GURUFOCUS_TOKEN
 
-import urllib.request, json
+import json
 import yahoo_fin.stock_info as si
 
 
@@ -78,9 +78,29 @@ def upload_files():
             )
         cursor.execute(sql, val)
     db_connection.commit()
+
+    # Pulling the last pulled date from history table
+    allow_pull = False
+    db_connection = get_database_connection()
+    cursor = db_connection.cursor(dictionary=True)
+    sql = f"SELECT max(pull_date) as max_pull_date FROM {DATABASE}.pull_data_history"
+    cursor.execute(sql)
+    last_pulled_date = cursor.fetchall()[0]['max_pull_date']
+    if(last_pulled_date == None):
+        allow_pull = True
+        last_pulled = 'No Data Pulled Yet'
+    else:
+        allow_pull = last_pulled_date.date() < dt.now().date()
+        last_pulled = last_pulled_date.strftime('%d, %b %Y')
+
     db_connection.close()
 
-    return render_template('csv.html', csv_records=csv_data)
+    return render_template(
+        'csv.html',
+        csv_records=csv_data,
+        last_pulled=last_pulled,
+        allow_pull=allow_pull
+    )
 
 
 @app.route("/watchlist", methods=['GET', 'POST'])
@@ -219,8 +239,11 @@ def edit_watchlist_item():
             cursor = db_connection.cursor(dictionary=True)
             sql = f"select * from price_data pd where symbol = '{watchlist_item_to_edit['symbol']}' order by `date` desc limit 1"
             cursor.execute(sql)
-            closing_price = cursor.fetchall()[0]
-            watchlist_item_to_edit['price'] = closing_price['close_price']
+            closing_price = cursor.fetchall()
+            if(not bool(closing_price)):
+                watchlist_item_to_edit['price'] = 0.0
+            else:
+                watchlist_item_to_edit['price'] = closing_price[0]['close_price']
         db_connection.close()
         return render_template(
             'editWatchlistItem.html',
@@ -232,7 +255,7 @@ def edit_watchlist_item():
     elif(request.method == 'POST'):
         db_connection = get_database_connection()
         cursor = db_connection.cursor()
-        sql = f"UPDATE {DATABASE}.input SET `company`='{ request.form.get('company')}', `symbol`='{ request.form.get('symbol')}', `price`={request.form.get('price')}, `watchlist_id`={request.form.get('watchlist_id')}, `datasource_id`={request.form.get('datasource_id')} WHERE `id`={request.form.get('id')}"
+        sql = f"UPDATE {DATABASE}.input SET `company`='{ request.form.get('company')}', `symbol`='{ request.form.get('symbol')}', `price`={0.0 if request.form.get('price') == '' else request.form.get('price') }, `watchlist_id`={request.form.get('watchlist_id')}, `datasource_id`={request.form.get('datasource_id')} WHERE `id`={request.form.get('id')}"
         cursor.execute(sql)
         db_connection.commit()
         cursor = db_connection.cursor(dictionary=True)
@@ -264,7 +287,7 @@ def pull_price_data():
         inputs = cursor.fetchall()
         for i in inputs:
             if(int(i['datasource_id']) == 1):
-                db_connection = get_database_connection()
+                # db_connection = get_database_connection()
                 cursor = db_connection.cursor(dictionary=True)
                 sql = f"select max(date) as latest_price_date from price_data pd where symbol = '{i['symbol']}'"
                 cursor.execute(sql)
@@ -295,9 +318,9 @@ def pull_price_data():
                     )
                     cursor.execute(sql, val)
                 db_connection.commit()
-                db_connection.close()
+                # db_connection.close()
             elif(int(i['datasource_id']) == 2):
-                db_connection = get_database_connection()
+                # db_connection = get_database_connection()
                 response = requests.get(f"https://api.gurufocus.com/public/user/{GURUFOCUS_TOKEN}/stock/{i['symbol']}/price")
                 gurufocus_price_data = json.loads(response.text)
                 if(len(gurufocus_price_data) >= 300):
@@ -318,9 +341,9 @@ def pull_price_data():
                         cursor.execute(sql, val)
                     db_connection.commit()
                 time.sleep(60)
-                db_connection.close()
+    #             db_connection.close()
 
-    db_connection = get_database_connection()
+    # db_connection = get_database_connection()
     cursor = db_connection.cursor()
     sql = f"INSERT INTO {DATABASE}.pull_data_history (`pull_date`)"
     sql = sql+" values(%s)"
