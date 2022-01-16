@@ -1,3 +1,5 @@
+from email import message
+from statistics import mode
 import requests
 from database import get_database_connection
 import flask
@@ -50,7 +52,7 @@ def upload_files():
     # get the uploaded file
     uploaded_file = request.files['file']
     if uploaded_file.filename != '':
-        file_path = os.path.join('/', uploaded_file.filename)
+        file_path = os.path.join(os.path.dirname(__file__), uploaded_file.filename)
         # set the file path
         uploaded_file.save(file_path)
         csv_data = parse_csv(file_path)
@@ -361,11 +363,76 @@ def view_pull_data_history():
     sql = f"SELECT * FROM {DATABASE}.pull_data_history"
     cursor.execute(sql)
     pulled_data_histories = cursor.fetchall()
+    db_connection.close()
     return render_template(
         'pulledPriceDataHistory.html',
         pulled_data_histories=pulled_data_histories
     )
-    
+
+
+@app.route('/edit-settings', methods=['GET', 'POST'])
+def edit_settings():
+    db_connection = get_database_connection()
+    message = ''
+    model = []
+    if(request.method == 'GET'):
+        cursor = db_connection.cursor(dictionary=True)
+        sql = f"SELECT * FROM {DATABASE}.settings"
+        cursor.execute(sql)
+        model = cursor.fetchall()
+        if(not bool(model)):
+            model = {
+                'id': 0,
+                'days_period_RSL': 130,
+                'moving_average_TSI': 29,
+                'reported_days': 100
+            }
+        else:
+            model = model[0]
+        
+    elif(request.method == 'POST'):
+        cursor = db_connection.cursor(dictionary=True)
+        if(int(request.form.get('id')) == 0):
+            sql = f"INSERT INTO {DATABASE}.settings (`days_period_RSL`, `moving_average_TSI`, `reported_days`)"
+            sql = sql + " values(%s, %s, %s)"
+            val = (
+                int(request.form.get('days_period_RSL')),
+                int(request.form.get('moving_average_TSI')),
+                int(request.form.get('reported_days')),
+            )
+            cursor.execute(sql, val)
+        else:
+            sql = f"UPDATE {DATABASE}.settings SET `days_period_RSL`={request.form.get('days_period_RSL')}, `moving_average_TSI`={request.form.get('moving_average_TSI')}, `reported_days`={request.form.get('reported_days')} WHERE `id`={request.form.get('id')}"
+            cursor.execute(sql)
+        message='Settings Updated'
+        sql = f"SELECT * FROM {DATABASE}.settings"
+        cursor.execute(sql)
+        model = cursor.fetchall()[0]
+    db_connection.commit()
+
+    db_connection.close()
+    return render_template('settings.html', model=model, message=message)
+
+
+@app.route('/calculate-stock-rsi', methods=['GET', 'POST'])
+def calculate_stock_rsi():
+    db_connection = get_database_connection()
+    cursor = db_connection.cursor(dictionary=True)
+    sql = f"SELECT * FROM {DATABASE}.settings"
+    cursor.execute(sql)
+    model = cursor.fetchall()
+    if(not bool(model)):
+        model = {
+            'id': 0,
+            'days_period_RSL': 130,
+            'moving_average_TSI': 29,
+            'reported_days': 100
+        }
+    else:
+        model = model[0]
+
+    db_connection.close()
+    return render_template('settings.html', model=model)
 
 
 if __name__ == '__main__':
