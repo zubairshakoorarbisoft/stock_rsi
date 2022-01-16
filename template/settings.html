@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="row mt-1">
+    <div class="col-md-12">
+        <h3>Settings</h3>
+        <p class="text-success"><strong><span>{{message}}</span></strong></p>
+        <form action="/edit-settings" method="POST">
+            <input type="hidden" value="{{model['id']}}" name="id" />
+            <div class="mb-3">
+              <label for="days_period_RSL" class="form-label">Days Period RSL</label>
+              <input type="number" class="form-control" name="days_period_RSL" id="days_period_RSL" value="{{model['days_period_RSL']}}">
+            </div>
+            <div class="mb-3">
+                <label for="moving_average_TSI" class="form-label">Moving Average TSI</label>
+                <input type="number" class="form-control" name="moving_average_TSI" id="moving_average_TSI" value="{{model['moving_average_TSI']}}">
+            </div>
+            <div class="mb-3">
+                <label for="reported_days" class="form-label">Reported Days</label>
+                <input type="number" class="form-control" name="reported_days" id="reported_days" value="{{model['reported_days']}}">
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </form>
+    </div>
+</div>
+
+{% endblock %}

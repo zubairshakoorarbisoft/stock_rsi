@@ -7,8 +7,31 @@
             <strong>Upload your CSV file here..</strong>
         <p><input class="btn btn-sm btn-primary" type="file" name="file" accept=".csv"> <input class="btn btn-primary" type="submit" value="Import"></p>
         <p>Last Pulled on: <strong>{{last_pulled}}</strong></p>
-        <p><button type="button" id="btnPullData"  data-bs-toggle="modal" data-bs-target="#pullDataConfirmationModal" class="btn btn-sm btn-primary {{'disabled' if not allow_pull }}" {% if not allow_pull %} disabled {% endif %} >Pull Prices</button> | <a class="btn btn-sm btn-info" target="_blank" href="/view-pull-data-history" >Pull History</a></p>
-        <p><strong><span id="pullStatus" class="text-success"></span></strong></p>
+        <p>
+          <button
+            type="button"
+            id="btnPullData"
+            data-bs-toggle="modal"
+            data-bs-target="#pullDataConfirmationModal"
+            class="btn btn-sm btn-primary {{'disabled' if not allow_pull }}" {% if not allow_pull %} disabled {% endif %}
+          >
+            Pull Prices
+          </button> | <a 
+                        class="btn btn-sm btn-info" 
+                        target="_blank" 
+                        href="/view-pull-data-history" 
+                      >
+                        Pull History
+                      </a> | <button
+                              id="btnCalculateStockRSI"
+                              type="button"
+                              class="btn btn-sm btn-primary" 
+                              onclick="calculateStockRSI()"
+                            >
+                            Calculate
+                            </button>
+          </p>
+        <p><strong><span id="progressMessage" class="text-success"></span></strong></p>
       </form>
     </div>
 </div>
@@ -65,7 +88,7 @@
 
   function pullPriceData(){
         $('#btnPullData').addClass('disabled');
-        $('#pullStatus').text('Pulling Price Data ...')
+        $('#progressMessage').text('Pulling Price Data ...')
         $.get("http://localhost:8000/pull-price-data",
         function(data, status){
           if(status === 'success'){
@@ -76,6 +99,24 @@
             console.log(data);
             console.log(status);
           }
+        })
+    }
+
+
+    function calculateStockRSI(){
+        $('#btnCalculateStockRSI').addClass('disabled');
+        $('#progressMessage').text('Pulling Price Data ...')
+        $.get("http://localhost:8000/pull-price-data",
+        function(data, status){
+          if(status === 'success'){
+            window.location.reload();
+          }
+          else{
+            alert('Something Went Wrong!');
+            console.log(data);
+            console.log(status);
+          }
+          $('#btnCalculateStockRSI').removeClass('disabled');
         })
     }
 </script>
