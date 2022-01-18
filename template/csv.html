@@ -2,10 +2,19 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-md-12">
+    <div class="col-md-6">
         <form method="POST" action="/" enctype="multipart/form-data">
             <strong>Upload your CSV file here..</strong>
-        <p><input class="btn btn-sm btn-primary" type="file" name="file" accept=".csv"> <input class="btn btn-primary" type="submit" value="Import"></p>
+            <p>
+              <label for="datasource_id" class="form-label">Data Source</label>
+                <select name="datasource_id" id="datasource_id" class="form-select" required>
+                    <option value="">Select Data Source</option>
+                    {% for dsi in datasource_items %}
+                    <option value="{{dsi['id']}}">{{dsi['name']}}</option>
+                    {% endfor %}
+                  </select>
+            </p>
+        <p><input class="btn btn-sm btn-primary" type="file" name="file" accept=".csv" required> <input class="btn btn-primary" type="submit" value="Import"></p>
         <p>Last Pulled on: <strong>{{last_pulled}}</strong></p>
         <p>
           <button
@@ -99,6 +108,30 @@
             console.log(data);
             console.log(status);
           }
+        }).fail(function (status, statusText) {
+          alert('Something Went Wrong!')
+          $('#btnPullData').removeClass('disabled');
+          $('#progressMessage').text('')
+        })
+    }
+
+
+    function calculateStockRSI(){
+        $('#btnCalculateStockRSI').addClass('disabled');
+        $.get("http://localhost:8000/calculate-stock-rsi",
+        function(data, status){
+          if(status === 'success'){
+            window.location.reload();
+          }
+          else{
+            alert('Something Went Wrong!');
+            console.log(data);
+            console.log(status);
+          }
+          $('#btnCalculateStockRSI').removeClass('disabled');
+        }).fail(function (status, statusText) {
+          alert('Something Went Wrong!')
+          $('#btnCalculateStockRSI').removeClass('disabled');
         })
     }
 
