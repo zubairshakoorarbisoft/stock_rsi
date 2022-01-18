@@ -20,6 +20,26 @@ app = flask.Flask(__name__, static_url_path='',
 
 app.config["DEBUG"] = True
 
+def get_stock_rsi_settings():
+    db_connection = get_database_connection()
+    cursor = db_connection.cursor(dictionary=True)
+    sql = f"SELECT * FROM {DATABASE}.settings"
+    cursor.execute(sql)
+    settings = cursor.fetchall()
+    if(not bool(settings)):
+        settings = {
+            'id': 0,
+            'days_period_RSL': 130,
+            'moving_average_TSI': 29,
+            'reported_days': 100,
+            'yahoo_price_data_days': 300,
+            'gurufocus_price_data_days': 300
+        }
+    else:
+        settings = settings[0]
+    db_connection.close()
+    return settings
+
 
 @app.route("/")
 def csv_index():
@@ -35,12 +55,16 @@ def csv_index():
     else:
         allow_pull = last_pulled_date.date() < dt.now().date()
         last_pulled = last_pulled_date.strftime('%d, %b %Y')
+    
+    sql = f"SELECT * FROM {DATABASE}.datasource"
+    cursor.execute(sql)
+    datasource_items = cursor.fetchall()
     db_connection.close()
-
     return render_template(
         "csv.html",
         last_pulled=last_pulled,
-        allow_pull=allow_pull
+        allow_pull=allow_pull,
+        datasource_items=datasource_items
     )
 
 
@@ -57,7 +81,7 @@ def upload_files():
         uploaded_file.save(file_path)
         csv_data = parse_csv(file_path)
 
-    wl_name = uploaded_file.filename.split('_')[0]
+    wl_name = uploaded_file.filename
     sql = f"INSERT INTO {DATABASE}.watchlist (`name`)"
     sql = sql+" values(%s)"
     val = (wl_name,)
@@ -76,7 +100,7 @@ def upload_files():
                0,
                dt.now(),
                wl_id,
-               int(uploaded_file.filename.split('.')[0].split('_')[1]),
+               int(request.form.get('datasource_id')),
             )
         cursor.execute(sql, val)
     db_connection.commit()
@@ -270,6 +294,7 @@ def edit_watchlist_item():
 
 @app.route("/pull-price-data", methods=['GET'])
 def pull_price_data():
+    settings = get_stock_rsi_settings()
     db_connection = get_database_connection()
     cursor = db_connection.cursor(dictionary=True)
     sql = f"SELECT * FROM {DATABASE}.watchlist"
@@ -289,24 +314,24 @@ def pull_price_data():
         inputs = cursor.fetchall()
         for i in inputs:
             if(int(i['datasource_id']) == 1):
-                # db_connection = get_database_connection()
                 cursor = db_connection.cursor(dictionary=True)
                 sql = f"select max(date) as latest_price_date from price_data pd where symbol = '{i['symbol']}'"
                 cursor.execute(sql)
                 latest_price_data = cursor.fetchall()
-
+                end_date = dt.now() - timedelta(days=1)
                 if(not bool(latest_price_data[0]['latest_price_date'])):
-                    end_date = dt.now() - timedelta(days=1)
-                    start_date = end_date - timedelta(days=199)
+                    start_date = end_date - timedelta(days=int(settings['yahoo_price_data_days']))
                 else:
-                    end_date = dt.now() - timedelta(days=1)
-                    start_date = dt.strptime(latest_price_data[0]['latest_price_date'].strftime('%m/%d/%y %H:%M:%S'), '%m/%d/%y %H:%M:%S') + timedelta(days=1)
-
-                df = si.get_data(
-                    i['symbol'],
-                    start_date = "{:02d}/{:02d}/{}".format(start_date.day, start_date.month, start_date.year),
-                    end_date = "{:02d}/{:02d}/{}".format(end_date.day, end_date.month, end_date.year)
-                )
+                    start_date = latest_price_data[0]['latest_price_date'] + timedelta(days=1)
+                try:
+                    df = si.get_data(
+                        i['symbol'],
+                        start_date = "{:02d}/{:02d}/{}".format(start_date.month, start_date.day, start_date.year),
+                        end_date = "{:02d}/{:02d}/{}".format(end_date.month, end_date.day, end_date.year)
+                    )
+                except KeyError as e:
+                    if(str(e) == "'timestamp'"):
+                        continue
                 dates = df.index
                 data = df.to_dict('records')
                 for index, value in enumerate(data):
@@ -320,14 +345,12 @@ def pull_price_data():
                     )
                     cursor.execute(sql, val)
                 db_connection.commit()
-                # db_connection.close()
             elif(int(i['datasource_id']) == 2):
-                # db_connection = get_database_connection()
                 response = requests.get(f"https://api.gurufocus.com/public/user/{GURUFOCUS_TOKEN}/stock/{i['symbol']}/price")
                 gurufocus_price_data = json.loads(response.text)
-                if(len(gurufocus_price_data) >= 300):
+                if(len(gurufocus_price_data) >= int(settings['gurufocus_price_data_days'])):
                     cursor = db_connection.cursor()
-                    for gurufocus_price in gurufocus_price_data[len(gurufocus_price_data) - 300 : ]:
+                    for gurufocus_price in gurufocus_price_data[len(gurufocus_price_data) - int(settings['gurufocus_price_data_days']) : ]:
                         sql = f"INSERT INTO {DATABASE}.price_data (`symbol`, `close_price`, `date`, `datasource_id`)"
                         sql = sql+" values(%s, %s, %s, %s)"
                         val = (
@@ -343,9 +366,7 @@ def pull_price_data():
                         cursor.execute(sql, val)
                     db_connection.commit()
                 time.sleep(60)
-    #             db_connection.close()
 
-    # db_connection = get_database_connection()
     cursor = db_connection.cursor()
     sql = f"INSERT INTO {DATABASE}.pull_data_history (`pull_date`)"
     sql = sql+" values(%s)"
@@ -372,67 +393,98 @@ def view_pull_data_history():
 
 @app.route('/edit-settings', methods=['GET', 'POST'])
 def edit_settings():
-    db_connection = get_database_connection()
     message = ''
     model = []
     if(request.method == 'GET'):
-        cursor = db_connection.cursor(dictionary=True)
-        sql = f"SELECT * FROM {DATABASE}.settings"
-        cursor.execute(sql)
-        model = cursor.fetchall()
-        if(not bool(model)):
-            model = {
-                'id': 0,
-                'days_period_RSL': 130,
-                'moving_average_TSI': 29,
-                'reported_days': 100
-            }
-        else:
-            model = model[0]
-        
+        model = get_stock_rsi_settings()
     elif(request.method == 'POST'):
+        db_connection = get_database_connection()
         cursor = db_connection.cursor(dictionary=True)
         if(int(request.form.get('id')) == 0):
-            sql = f"INSERT INTO {DATABASE}.settings (`days_period_RSL`, `moving_average_TSI`, `reported_days`)"
-            sql = sql + " values(%s, %s, %s)"
+            sql = f"INSERT INTO {DATABASE}.settings (`days_period_RSL`, `moving_average_TSI`, `reported_days`, `yahoo_price_data_days`, `gurufocus_price_data_days`)"
+            sql = sql + " values(%s, %s, %s, %s, %s)"
             val = (
                 int(request.form.get('days_period_RSL')),
                 int(request.form.get('moving_average_TSI')),
                 int(request.form.get('reported_days')),
+                int(request.form.get('yahoo_price_data_days')),
+                int(request.form.get('gurufocus_price_data_days')),
             )
             cursor.execute(sql, val)
         else:
-            sql = f"UPDATE {DATABASE}.settings SET `days_period_RSL`={request.form.get('days_period_RSL')}, `moving_average_TSI`={request.form.get('moving_average_TSI')}, `reported_days`={request.form.get('reported_days')} WHERE `id`={request.form.get('id')}"
+            sql = f"UPDATE {DATABASE}.settings SET `days_period_RSL`={request.form.get('days_period_RSL')}, `moving_average_TSI`={request.form.get('moving_average_TSI')}, `reported_days`={request.form.get('reported_days')}, `yahoo_price_data_days`={request.form.get('yahoo_price_data_days')}, `gurufocus_price_data_days`={request.form.get('gurufocus_price_data_days')} WHERE `id`={request.form.get('id')}"
             cursor.execute(sql)
+        db_connection.commit()
+        db_connection.close()
         message='Settings Updated'
-        sql = f"SELECT * FROM {DATABASE}.settings"
-        cursor.execute(sql)
-        model = cursor.fetchall()[0]
-    db_connection.commit()
-
-    db_connection.close()
+        model = get_stock_rsi_settings()
     return render_template('settings.html', model=model, message=message)
 
 
 @app.route('/calculate-stock-rsi', methods=['GET', 'POST'])
 def calculate_stock_rsi():
+    settings = get_stock_rsi_settings()
     db_connection = get_database_connection()
     cursor = db_connection.cursor(dictionary=True)
-    sql = f"SELECT * FROM {DATABASE}.settings"
+    sql = f"SELECT * FROM {DATABASE}.watchlist"
     cursor.execute(sql)
-    model = cursor.fetchall()
-    if(not bool(model)):
-        model = {
-            'id': 0,
-            'days_period_RSL': 130,
-            'moving_average_TSI': 29,
-            'reported_days': 100
-        }
-    else:
-        model = model[0]
+    watchlists = cursor.fetchall()
+    calculated_list_of_tickers_of_all_watchlists = []
+    rsl_days_dates = []
+    for wl in watchlists: # Iterating all watchlists
+        sql = f"SELECT * FROM {DATABASE}.input WHERE `watchlist_id`={wl['id']}"
+        cursor.execute(sql)
+        wl_items = cursor.fetchall()
+        for wli in wl_items: # Iterating all items of watchlist
+            sql = f"select * from price_data pd where symbol  = '{wli['symbol']}'" # Getting all existing price data of the symbol/Ticker
+            cursor.execute(sql)
+            all_price_data = cursor.fetchall()
+            all_price_data_of_rsl_days = all_price_data[(len(all_price_data) - int(settings['days_period_RSL'])) - 1:]
+            # Step 1 Calculation
+            for day_price_record in all_price_data_of_rsl_days:
+                rsl_days_dates.append(day_price_record['date'])
+                RSL_period_data = all_price_data[(all_price_data.index(day_price_record) - int(settings['days_period_RSL'])) : all_price_data.index(day_price_record) - 1]
+                sum_of_previous_days_prices = 0.00
+                for day_data in RSL_period_data:
+                    sum_of_previous_days_prices = sum_of_previous_days_prices + float(day_data['close_price'])
+                # Finding Average now
+                avg_of_previous_days_prices = sum_of_previous_days_prices/len(RSL_period_data)
+                calculated_list_of_tickers_of_all_watchlists.append(
+                    {
+                        'symbol': day_price_record['symbol'],
+                        'value': float(float(day_price_record['close_price'])/avg_of_previous_days_prices),
+                        'date': day_price_record['date'],
+                        'watchlist_id': wl['id']
+                    }
+                )
 
+
+    for rsl_date in rsl_days_dates:
+        filtered_on_day = list(filter(
+                    lambda day_value: day_value['date'] == rsl_date,
+                    calculated_list_of_tickers_of_all_watchlists
+                ))
+        filtered_on_day.sort(key=lambda x: x['value'], reverse=True)
+
+        # Adding step 1 calculations in database
+        for index, item in enumerate(filtered_on_day):
+            sql = f"INSERT INTO {DATABASE}.ranks_calculations (`symbol`, `rsl_days_value`, `rank_rsl_days_value`, `watchlist_id`, `date`, `rank_rsl_days_percentage`)"
+            sql = sql + " values(%s, %s, %s, %s, %s, %s)"
+            val = (
+                item['symbol']+str(index),
+                float(item['value']),
+                index+1,
+                int(item['watchlist_id']),
+                item['date'],
+                round(100-((100/(len(filtered_on_day)-1))*(index))),
+            )
+            cursor.execute(sql, val)
+        db_connection.commit()
+
+                
     db_connection.close()
-    return render_template('settings.html', model=model)
+    breakpoint()
+    return render_template('settings.html')
 
 
 if __name__ == '__main__':
