@@ -429,11 +429,15 @@ def calculate_stock_rsi():
     cursor = db_connection.cursor(dictionary=True)
     sql = f"delete from `ranks_calculations`"
     cursor.execute(sql)
+    sql = f"delete from `tsi_ranks_calculations`"
+    cursor.execute(sql)
     db_connection.commit()
     sql = f"SELECT * FROM {DATABASE}.watchlist"
     cursor.execute(sql)
+    breakpoint()
     watchlists = cursor.fetchall()
     calculated_list_of_tickers_of_all_watchlists = []
+    calculated_list_of_tickers_of_all_watchlists_TSI = []
     rsl_days_dates = []
     for wl in watchlists: # Iterating all watchlists
         sql = f"SELECT * FROM {DATABASE}.input WHERE `watchlist_id`={wl['id']}"
@@ -499,37 +503,68 @@ def calculate_stock_rsi():
             db_connection.commit()
 
 
-    for wl in watchlists: # Iterating all watchlists
-        sql = f"SELECT * FROM {DATABASE}.input WHERE `watchlist_id`={wl['id']}"
-        cursor.execute(sql)
-        wl_items = cursor.fetchall()
-        for wli in wl_items:
-            for rsl_date in rsl_days_dates[len(rsl_days_dates)-90:]:
-                tsi_days_sum = 0
-                sql = f"select * from ranks_calculations rc where symbol = '{wli['symbol']}' and `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}'"
-                cursor.execute(sql)
-                day_of_rsl_rank = cursor.fetchall()[0]
-                sql = f"select * from ranks_calculations where symbol = '{wli['symbol']}' and date < date('{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}') order by date desc limit {int(settings['moving_average_TSI'])}"
-                cursor.execute(sql)
-                tsi_days_data = cursor.fetchall()
-                for i in tsi_days_data:
-                    tsi_days_sum = tsi_days_sum + i['rank_rsl_days_percentage']
-                tsi_mean_percentage = round(tsi_days_sum/len(tsi_days_data))
-                print(tsi_mean_percentage)
-                sql = f"UPDATE {DATABASE}.ranks_calculations SET `tsi_mean_percentage`={tsi_mean_percentage} WHERE `id`={day_of_rsl_rank['id']}"
-                cursor.execute(sql)
-                db_connection.commit()
+    tsi_days_dates = []
+    for wli in watchlists:
+        calculated_rsl_ranks_items = list(filter(
+                    lambda calculation_value: calculation_value['watchlist_id'] == wli['id'],
+                    rsl_rank_calculations
+                ))
+        for calculation_item in calculated_rsl_ranks_items:
+            all_rsl_ranks_calculated_data = list(filter(
+                    lambda item: item['symbol'] == calculation_item['symbol'],
+                    calculated_rsl_ranks_items
+                ))
+            all_price_data_of_tsi_days = all_rsl_ranks_calculated_data[(len(all_rsl_ranks_calculated_data) - int(settings['moving_average_TSI'])):]
+            # Step 2 Moving TSI Calculation
+            for day_price_record in all_price_data_of_tsi_days:
+                if(len(tsi_days_dates) != int(settings['moving_average_TSI'])):
+                    tsi_days_dates.append(day_price_record['date'])
+                TSI_period_data = all_rsl_ranks_calculated_data[(all_rsl_ranks_calculated_data.index(day_price_record) - int(settings['moving_average_TSI'])) : all_rsl_ranks_calculated_data.index(day_price_record) - 1]
+                sum_of_previous_days_prices = 0.00
+                for day_data in TSI_period_data:
+                    sum_of_previous_days_prices = sum_of_previous_days_prices + float(day_data['rsl_rank_percentage'])
+                # Finding Average now
+                avg_of_previous_days_prices = sum_of_previous_days_prices/len(TSI_period_data)
+                calculated_list_of_tickers_of_all_watchlists_TSI.append(
+                    {
+                        'symbol': day_price_record['symbol'],
+                        'value': 0.0 if avg_of_previous_days_prices == 0 else float(float(day_price_record['value'])/avg_of_previous_days_prices),
+                        'date': day_price_record['date'],
+                        'watchlist_id': wl['id']
+                    }
+                )
+    
 
 
-    # Ranking TSI Percentages
-    for rsl_date in rsl_days_dates[len(rsl_days_dates)-90:]:
-        sql = f"select * from ranks_calculations rc WHERE `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}' order by tsi_mean_percentage desc"
-        cursor.execute(sql)
-        tsi_mean_percentages_of_day = cursor.fetchall()
-        for index, item in enumerate(tsi_mean_percentages_of_day):
-            sql = f"UPDATE {DATABASE}.ranks_calculations SET `tsi_mean_percentage_rank`={index+1} WHERE `id`={item['id']}"
-            cursor.execute(sql)
-        db_connection.commit()
+    # Ranking TSI Data now
+    for tsi_date in tsi_days_dates:
+        filtered_on_day = list(filter(
+                    lambda day_value: day_value['date'] == tsi_date,
+                    calculated_list_of_tickers_of_all_watchlists_TSI
+                ))
+        if(len(filtered_on_day) > 1):
+            filtered_on_day.sort(key=lambda x: x['value'], reverse=True)
+            tickers_of_the_day = list(set(ticker['symbol'] for ticker in filtered_on_day))
+            
+            # Adding step 1 calculations in database
+            for index, item in enumerate(tickers_of_the_day):
+                ticker_data_on_day = list(filter(
+                    lambda day_value: day_value['symbol'] == item,
+                    filtered_on_day
+                ))[0]
+
+                sql = f"INSERT INTO {DATABASE}.tsi_ranks_calculations (`symbol`, `tsi_days_value`, `rank_tsi_days_value`, `watchlist_id`, `date`, `rank_tsi_days_percentage`)"
+                sql = sql + " values(%s, %s, %s, %s, %s, %s)"
+                val = (
+                    ticker_data_on_day['symbol'],
+                    float(ticker_data_on_day['value']),
+                    index+1,
+                    int(ticker_data_on_day['watchlist_id']),
+                    ticker_data_on_day['date'],
+                    round(100-((100/(len(tickers_of_the_day)-1))*(index))),
+                )
+                cursor.execute(sql, val)
+            db_connection.commit()
 
 
 
