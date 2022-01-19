@@ -100,18 +100,7 @@
         $('#progressMessage').text('Pulling Price Data ...')
         $.get("http://localhost:8000/pull-price-data",
         function(data, status){
-          if(status === 'success'){
-            window.location.reload();
-          }
-          else{
-            alert('Something Went Wrong!');
-            console.log(data);
-            console.log(status);
-          }
-        }).fail(function (status, statusText) {
-          alert('Something Went Wrong!')
-          $('#btnPullData').removeClass('disabled');
-          $('#progressMessage').text('')
+          window.location.reload();
         })
     }
 
@@ -131,24 +120,6 @@
           $('#btnCalculateStockRSI').removeClass('disabled');
         }).fail(function (status, statusText) {
           alert('Something Went Wrong!')
-          $('#btnCalculateStockRSI').removeClass('disabled');
-        })
-    }
-
-
-    function calculateStockRSI(){
-        $('#btnCalculateStockRSI').addClass('disabled');
-        $('#progressMessage').text('Pulling Price Data ...')
-        $.get("http://localhost:8000/pull-price-data",
-        function(data, status){
-          if(status === 'success'){
-            window.location.reload();
-          }
-          else{
-            alert('Something Went Wrong!');
-            console.log(data);
-            console.log(status);
-          }
           $('#btnCalculateStockRSI').removeClass('disabled');
         })
     }

@@ -439,10 +439,11 @@ def calculate_stock_rsi():
             sql = f"select * from price_data pd where symbol  = '{wli['symbol']}'" # Getting all existing price data of the symbol/Ticker
             cursor.execute(sql)
             all_price_data = cursor.fetchall()
-            all_price_data_of_rsl_days = all_price_data[(len(all_price_data) - int(settings['days_period_RSL'])) - 1:]
+            all_price_data_of_rsl_days = all_price_data[(len(all_price_data) - int(settings['days_period_RSL'])):]
             # Step 1 Calculation
             for day_price_record in all_price_data_of_rsl_days:
-                rsl_days_dates.append(day_price_record['date'])
+                if(len(rsl_days_dates) != int(settings['days_period_RSL'])):
+                    rsl_days_dates.append(day_price_record['date'])
                 RSL_period_data = all_price_data[(all_price_data.index(day_price_record) - int(settings['days_period_RSL'])) : all_price_data.index(day_price_record) - 1]
                 sum_of_previous_days_prices = 0.00
                 for day_data in RSL_period_data:
@@ -464,22 +465,23 @@ def calculate_stock_rsi():
                     lambda day_value: day_value['date'] == rsl_date,
                     calculated_list_of_tickers_of_all_watchlists
                 ))
-        filtered_on_day.sort(key=lambda x: x['value'], reverse=True)
+        if(len(filtered_on_day) > 1):
+            filtered_on_day.sort(key=lambda x: x['value'], reverse=True)
 
-        # Adding step 1 calculations in database
-        for index, item in enumerate(filtered_on_day):
-            sql = f"INSERT INTO {DATABASE}.ranks_calculations (`symbol`, `rsl_days_value`, `rank_rsl_days_value`, `watchlist_id`, `date`, `rank_rsl_days_percentage`)"
-            sql = sql + " values(%s, %s, %s, %s, %s, %s)"
-            val = (
-                item['symbol']+str(index),
-                float(item['value']),
-                index+1,
-                int(item['watchlist_id']),
-                item['date'],
-                round(100-((100/(len(filtered_on_day)-1))*(index))),
-            )
-            cursor.execute(sql, val)
-        db_connection.commit()
+            # Adding step 1 calculations in database
+            for index, item in enumerate(filtered_on_day):
+                sql = f"INSERT INTO {DATABASE}.ranks_calculations (`symbol`, `rsl_days_value`, `rank_rsl_days_value`, `watchlist_id`, `date`, `rank_rsl_days_percentage`)"
+                sql = sql + " values(%s, %s, %s, %s, %s, %s)"
+                val = (
+                    item['symbol'],
+                    float(item['value']),
+                    index+1,
+                    int(item['watchlist_id']),
+                    item['date'],
+                    round(100-((100/(len(filtered_on_day)-1))*(index))),
+                )
+                cursor.execute(sql, val)
+            db_connection.commit()
 
                 
     db_connection.close()
