@@ -422,7 +422,7 @@ def edit_settings():
     return render_template('settings.html', model=model, message=message)
 
 
-@app.route('/calculate-stock-rsi', methods=['GET', 'POST'])
+@app.route('/calculate-stock-rsi', methods=['POST'])
 def calculate_stock_rsi():
     settings = get_stock_rsi_settings()
     db_connection = get_database_connection()
@@ -430,7 +430,8 @@ def calculate_stock_rsi():
     sql = f"delete from `ranks_calculations`"
     cursor.execute(sql)
     db_connection.commit()
-    sql = f"SELECT * FROM {DATABASE}.watchlist"
+    sql = f"SELECT * FROM {DATABASE}.watchlist where id in ({request.form.get('selectedWLs')})"
+
     cursor.execute(sql)
     watchlists = cursor.fetchall()
     calculated_list_of_tickers_of_all_watchlists = []
@@ -504,7 +505,7 @@ def calculate_stock_rsi():
         cursor.execute(sql)
         wl_items = cursor.fetchall()
         for wli in wl_items:
-            for rsl_date in rsl_days_dates[len(rsl_days_dates)-90:]:
+            for rsl_date in rsl_days_dates[len(rsl_days_dates)-int(settings['reported_days']):]:
                 tsi_days_sum = 0
                 sql = f"select * from ranks_calculations rc where symbol = '{wli['symbol']}' and `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}'"
                 cursor.execute(sql)
@@ -522,20 +523,48 @@ def calculate_stock_rsi():
 
 
     # Ranking TSI Percentages
-    for rsl_date in rsl_days_dates[len(rsl_days_dates)-90:]:
-        sql = f"select * from ranks_calculations rc WHERE `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}' order by tsi_mean_percentage desc"
-        cursor.execute(sql)
-        tsi_mean_percentages_of_day = cursor.fetchall()
-        for index, item in enumerate(tsi_mean_percentages_of_day):
-            sql = f"UPDATE {DATABASE}.ranks_calculations SET `tsi_mean_percentage_rank`={index+1} WHERE `id`={item['id']}"
+    # for rsl_date in rsl_days_dates[len(rsl_days_dates)-int(settings['reported_days']):]:
+    #     sql = f"select * from ranks_calculations rc WHERE `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}' order by tsi_mean_percentage desc"
+    #     cursor.execute(sql)
+    #     tsi_mean_percentages_of_day = cursor.fetchall()
+    #     for index, item in enumerate(tsi_mean_percentages_of_day):
+    #         sql = f"UPDATE {DATABASE}.ranks_calculations SET `tsi_mean_percentage_rank`={index+1} WHERE `id`={item['id']}"
+    #         cursor.execute(sql)
+    #     db_connection.commit()
+
+    for rsl_date in rsl_days_dates[len(rsl_days_dates)-int(settings['reported_days']):]:
+        for wl in watchlists:
+            sql = f"select * from ranks_calculations rc WHERE watchlist_id={wl['id']} and `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}' order by tsi_mean_percentage desc"
             cursor.execute(sql)
-        db_connection.commit()
+            tsi_mean_percentages_of_day = cursor.fetchall()
+            for index, item in enumerate(tsi_mean_percentages_of_day):
+                sql = f"UPDATE {DATABASE}.ranks_calculations SET `tsi_mean_percentage_rank`={index+1} WHERE `id`={item['id']}"
+                cursor.execute(sql)
+            db_connection.commit()
 
 
 
     db_connection.close()
-    breakpoint()
-    return render_template('settings.html')
+    return 'Calculations and Ranking has been Completed'
+
+
+@app.route("/view-calculations", methods=['GET'])
+def view_calculations():
+    db_connection = get_database_connection()
+    cursor = db_connection.cursor(dictionary=True)
+    sql = f"select * from ranks_calculations rc where watchlist_id = {request.args.get('wl_id')} and tsi_mean_percentage is not null"
+    cursor.execute(sql)
+    tsi_calculations = cursor.fetchall()
+    sql = f"select max(date) max_date from ranks_calculations"
+    cursor.execute(sql)
+    max_date = cursor.fetchall()[0]
+    return render_template(
+        'tsiCalculations.html',
+        tsi_calculations=enumerate(tsi_calculations),
+        watchlist_name=request.args.get('watchlist_name'),
+        max_ranking_date=max_date['max_date']
+    )
+
 
 
 if __name__ == '__main__':

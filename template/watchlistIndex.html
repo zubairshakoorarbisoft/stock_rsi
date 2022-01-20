@@ -4,7 +4,15 @@
 
 <div class="row mt-1">
     <div class="col-md-12">
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWatchlistModal">+</button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWatchlistModal">+</button> | <button
+        id="btnCalculateStockRSI"
+        type="button"
+        class="btn btn-primary" 
+        onclick="calculateStockRSI()"
+      >
+      Calculate
+      </button>
+      <p><strong><span id="progressMessage" class="text-success"></span></strong></p>
         <table id="data" class="table table-striped" style="width: 100%;">
             <thead>
               <tr>
@@ -15,8 +23,30 @@
             <tbody>
               {% for r in watchlist_records %}
                 <tr>
-                  <td><a href="/view-watchlist?watchlist_id={{r['id']}}&watchlist_name={{r['name']}}">{{ r['name'] }}</a></td>
-                  <td><button class="btn btn-sm btn-danger" name="{{r['name']}}" href="/watchlist?id={{r['id']}}" onclick="showDelModal(this)">Remove</button> | <a class="btn btn-sm btn-primary" id="{{r['id']}}" name="{{r['name']}}" onclick='showEditModal(this)'>Rename</a></td>
+                  <td><a selected_wl_id="{{r['id']}}" href="/view-watchlist?watchlist_id={{r['id']}}&watchlist_name={{r['name']}}">{{ r['name'] }}</a></td>
+                  <td>
+                    <button 
+                      class="btn btn-sm btn-danger" 
+                      name="{{r['name']}}" 
+                      href="/watchlist?id={{r['id']}}" 
+                      onclick="showDelModal(this)"
+                    >
+                      Remove
+                    </button> | <a 
+                                  class="btn btn-sm btn-primary" 
+                                  id="{{r['id']}}" 
+                                  name="{{r['name']}}"
+                                  onclick='showEditModal(this)'
+                                >
+                                Rename
+                              
+                              </a> | <a 
+                              class="btn btn-sm btn-primary" 
+                              href="/view-calculations?wl_id={{r['id']}}&watchlist_name={{r['name']}}"
+                            >
+                            View Calculation
+                          </a>
+                </td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -82,8 +112,12 @@
 
 
 <script>
+  var tableDatatable = undefined;
     $(document).ready( function () {
-    $('#data').DataTable();
+     tableDatatable = $('#data').DataTable();
+    $('#data tbody').on('click', 'tr', function () {
+        $(this).toggleClass('selected-row');
+    } );
     $('#btnAddWatchlist').click(function () {
         if(!(!!$('#watchlistName').val())){
             alert('Name is required')
@@ -99,6 +133,8 @@
         })
         })
     });
+
+    
 
     $('#btnEditWatchlist').click(function () {
         if(!(!!$('#watchlistNameEdit').val())){
@@ -125,6 +161,35 @@
         $('#btnConfrimDel').attr('href', element.attributes['href'].value)
         $('#wlToDel').text(element.attributes['name'].value);
         $('#delWatchlistModal').modal('show');
+    }
+
+    function calculateStockRSI(){
+      var selectedWLIds = []
+      var selectedRows = tableDatatable.rows('.selected-row').data();
+      for (let i = 0; i < selectedRows.length; i++) {
+        selectedWLIds.push(
+          parseInt(
+            selectedRows[i][0].split('selected_wl_id="')[1].split('"')[0]
+            )
+            )
+      }
+      if(selectedWLIds.length < 1){
+        alert('Please select atleast one Watchlist to proceed')
+        return false
+      }
+        $('#progressMessage').text('Calculating ...')
+        $('#btnCalculateStockRSI').addClass('disabled');
+        $.post("http://localhost:8000/calculate-stock-rsi",
+        { selectedWLs: selectedWLIds.toString() },
+        function(data, status){
+          debugger
+          $('#progressMessage').text(data)
+          $('#btnCalculateStockRSI').removeClass('disabled');
+        }).fail(function (status, statusText) {
+          alert('Something Went Wrong!')
+          $('#progressMessage').text('')
+          $('#btnCalculateStockRSI').removeClass('disabled');
+        })
     }
 </script>
 

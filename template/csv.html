@@ -31,14 +31,7 @@
                         href="/view-pull-data-history" 
                       >
                         Pull History
-                      </a> | <button
-                              id="btnCalculateStockRSI"
-                              type="button"
-                              class="btn btn-sm btn-primary" 
-                              onclick="calculateStockRSI()"
-                            >
-                            Calculate
-                            </button>
+                      </a>
           </p>
         <p><strong><span id="progressMessage" class="text-success"></span></strong></p>
       </form>
@@ -104,25 +97,6 @@
         })
     }
 
-
-    function calculateStockRSI(){
-        $('#btnCalculateStockRSI').addClass('disabled');
-        $.get("http://localhost:8000/calculate-stock-rsi",
-        function(data, status){
-          if(status === 'success'){
-            window.location.reload();
-          }
-          else{
-            alert('Something Went Wrong!');
-            console.log(data);
-            console.log(status);
-          }
-          $('#btnCalculateStockRSI').removeClass('disabled');
-        }).fail(function (status, statusText) {
-          alert('Something Went Wrong!')
-          $('#btnCalculateStockRSI').removeClass('disabled');
-        })
-    }
 </script>
 
 {% endblock %}
