@@ -11,7 +11,20 @@
         onclick="calculateStockRSI()"
       >
       Calculate
-      </button>
+      </button> | <button
+        id="btnAllCalculateStockRSI"
+        type="button"
+        class="btn btn-primary" 
+        onclick="calculateAllStockRSI()"
+      >
+        Calculate All
+      </button> | <a
+      target="_blank"
+      href="/view-all-calculations"
+      class="btn btn-primary" 
+    >
+      View All Calculations
+    </a>
       <p><strong><span id="progressMessage" class="text-success"></span></strong></p>
         <table id="data" class="table table-striped" style="width: 100%;">
             <thead>
@@ -41,6 +54,7 @@
                                 Rename
                               
                               </a> | <a 
+                              target="_blank"
                               class="btn btn-sm btn-primary" 
                               href="/view-calculations?wl_id={{r['id']}}&watchlist_name={{r['name']}}"
                             >
@@ -177,12 +191,11 @@
         alert('Please select atleast one Watchlist to proceed')
         return false
       }
-        $('#progressMessage').text('Calculating ...')
+        $('#progressMessage').text('Calculating for selected watchlists...')
         $('#btnCalculateStockRSI').addClass('disabled');
         $.post("http://localhost:8000/calculate-stock-rsi",
         { selectedWLs: selectedWLIds.toString() },
         function(data, status){
-          debugger
           $('#progressMessage').text(data)
           $('#btnCalculateStockRSI').removeClass('disabled');
         }).fail(function (status, statusText) {
@@ -191,6 +204,22 @@
           $('#btnCalculateStockRSI').removeClass('disabled');
         })
     }
+
+    function calculateAllStockRSI(){
+        $('#progressMessage').text('Calculating for all Watchlists ...')
+        $('#btnAllCalculateStockRSI').addClass('disabled');
+        $.get("http://localhost:8000/calculate-all-stock-rsi",
+        function(data, status){
+          $('#progressMessage').text(data)
+          $('#btnAllCalculateStockRSI').removeClass('disabled');
+        }).fail(function (status, statusText) {
+          alert('Something Went Wrong!')
+          $('#progressMessage').text('')
+          $('#btnAllCalculateStockRSI').removeClass('disabled');
+        })
+    }
+    view-all-calculations
+
 </script>
 
 {% endblock %}

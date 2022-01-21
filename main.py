@@ -76,7 +76,11 @@ def upload_files():
     # get the uploaded file
     uploaded_file = request.files['file']
     if uploaded_file.filename != '':
-        file_path = os.path.join(os.path.dirname(__file__), 'uploads', uploaded_file.filename)
+        uploads_folder_path = os.path.join(os.path.dirname(__file__), 'uploads')
+        if not os.path.exists(uploads_folder_path):
+            # Create a new directory because it does not exist 
+            os.makedirs(uploads_folder_path)
+        file_path = os.path.join(uploads_folder_path, uploaded_file.filename)
         # set the file path
         uploaded_file.save(file_path)
         csv_data = parse_csv(file_path)
@@ -463,41 +467,41 @@ def calculate_stock_rsi():
                         'watchlist_id': wl['id']
                     }
                 )
+    for wl in watchlists:
+        rsl_rank_calculations = []
+        for rsl_date in rsl_days_dates:
+            filtered_on_day = list(filter(
+                        lambda day_value: day_value['date'] == rsl_date,
+                        calculated_list_of_tickers_of_all_watchlists
+                    ))
+            if(len(filtered_on_day) > 1):
+                filtered_on_day.sort(key=lambda x: x['value'], reverse=True)
 
-    rsl_rank_calculations = []
-    for rsl_date in rsl_days_dates:
-        filtered_on_day = list(filter(
-                    lambda day_value: day_value['date'] == rsl_date,
-                    calculated_list_of_tickers_of_all_watchlists
-                ))
-        if(len(filtered_on_day) > 1):
-            filtered_on_day.sort(key=lambda x: x['value'], reverse=True)
+                # Adding step 1 calculations in database
+                for index, item in enumerate(filtered_on_day):
+                    rsl_rank_calculations.append(
+                        {
+                            'symbol': item['symbol'],
+                            'value': float(item['value']),
+                            'rsl_rank': index+1,
+                            'watchlist_id': int(item['watchlist_id']),
+                            'date': item['date'],
+                            'rsl_rank_percentage': round(100-((100/(len(filtered_on_day)-1))*(index)))
+                        }
+                    )
 
-            # Adding step 1 calculations in database
-            for index, item in enumerate(filtered_on_day):
-                rsl_rank_calculations.append(
-                    {
-                        'symbol': item['symbol'],
-                        'value': float(item['value']),
-                        'rsl_rank': index+1,
-                        'watchlist_id': int(item['watchlist_id']),
-                        'date': item['date'],
-                        'rsl_rank_percentage': round(100-((100/(len(filtered_on_day)-1))*(index)))
-                    }
-                )
-
-                sql = f"INSERT INTO {DATABASE}.ranks_calculations (`symbol`, `rsl_days_value`, `rank_rsl_days_value`, `watchlist_id`, `date`, `rank_rsl_days_percentage`)"
-                sql = sql + " values(%s, %s, %s, %s, %s, %s)"
-                val = (
-                    item['symbol'],
-                    float(item['value']),
-                    index+1,
-                    int(item['watchlist_id']),
-                    item['date'],
-                    round(100-((100/(len(filtered_on_day)-1))*(index))),
-                )
-                cursor.execute(sql, val)
-            db_connection.commit()
+                    sql = f"INSERT INTO {DATABASE}.ranks_calculations (`symbol`, `rsl_days_value`, `rank_rsl_days_value`, `watchlist_id`, `date`, `rank_rsl_days_percentage`)"
+                    sql = sql + " values(%s, %s, %s, %s, %s, %s)"
+                    val = (
+                        item['symbol'],
+                        float(item['value']),
+                        index+1,
+                        int(item['watchlist_id']),
+                        item['date'],
+                        round(100-((100/(len(filtered_on_day)-1))*(index))),
+                    )
+                    cursor.execute(sql, val)
+                db_connection.commit()
 
 
     for wl in watchlists: # Iterating all watchlists
@@ -548,6 +552,119 @@ def calculate_stock_rsi():
     return 'Calculations and Ranking has been Completed'
 
 
+@app.route('/calculate-all-stock-rsi', methods=['GET'])
+def calculate_all_stock_rsi():
+    settings = get_stock_rsi_settings()
+    db_connection = get_database_connection()
+    cursor = db_connection.cursor(dictionary=True)
+    sql = f"delete from `all_ranks_calculations`"
+    cursor.execute(sql)
+    db_connection.commit()
+    sql = f"SELECT * FROM {DATABASE}.watchlist"
+
+    cursor.execute(sql)
+    watchlists = cursor.fetchall()
+    calculated_list_of_tickers_of_all_watchlists = []
+    rsl_days_dates = []
+    for wl in watchlists: # Iterating all watchlists
+        sql = f"SELECT * FROM {DATABASE}.input WHERE `watchlist_id`={wl['id']}"
+        cursor.execute(sql)
+        wl_items = cursor.fetchall()
+        for wli in wl_items: # Iterating all items of watchlist
+            sql = f"select * from price_data pd where symbol  = '{wli['symbol']}'" # Getting all existing price data of the symbol/Ticker
+            cursor.execute(sql)
+            all_price_data = cursor.fetchall()
+            all_price_data_of_rsl_days = all_price_data[(len(all_price_data) - int(settings['days_period_RSL'])):]
+            # Step 1 Calculation
+            for day_price_record in all_price_data_of_rsl_days:
+                if(len(rsl_days_dates) != int(settings['days_period_RSL'])):
+                    rsl_days_dates.append(day_price_record['date'])
+                RSL_period_data = all_price_data[(all_price_data.index(day_price_record) - int(settings['days_period_RSL'])) : all_price_data.index(day_price_record) - 1]
+                sum_of_previous_days_prices = 0.00
+                for day_data in RSL_period_data:
+                    sum_of_previous_days_prices = sum_of_previous_days_prices + float(day_data['close_price'])
+                # Finding Average now
+                avg_of_previous_days_prices = sum_of_previous_days_prices/len(RSL_period_data)
+                calculated_list_of_tickers_of_all_watchlists.append(
+                    {
+                        'symbol': day_price_record['symbol'],
+                        'value': float(float(day_price_record['close_price'])/avg_of_previous_days_prices),
+                        'date': day_price_record['date'],
+                        'watchlist_id': wl['id']
+                    }
+                )
+
+    rsl_rank_calculations = []
+    for rsl_date in rsl_days_dates:
+        filtered_on_day = list(filter(
+                    lambda day_value: day_value['date'] == rsl_date,
+                    calculated_list_of_tickers_of_all_watchlists
+                ))
+        if(len(filtered_on_day) > 1):
+            filtered_on_day.sort(key=lambda x: x['value'], reverse=True)
+
+            # Adding step 1 calculations in database
+            for index, item in enumerate(filtered_on_day):
+                rsl_rank_calculations.append(
+                    {
+                        'symbol': item['symbol'],
+                        'value': float(item['value']),
+                        'rsl_rank': index+1,
+                        'watchlist_id': int(item['watchlist_id']),
+                        'date': item['date'],
+                        'rsl_rank_percentage': round(100-((100/(len(filtered_on_day)-1))*(index)))
+                    }
+                )
+
+                sql = f"INSERT INTO {DATABASE}.all_ranks_calculations (`symbol`, `rsl_days_value`, `rank_rsl_days_value`, `watchlist_id`, `date`, `rank_rsl_days_percentage`)"
+                sql = sql + " values(%s, %s, %s, %s, %s, %s)"
+                val = (
+                    item['symbol'],
+                    float(item['value']),
+                    index+1,
+                    int(item['watchlist_id']),
+                    item['date'],
+                    round(100-((100/(len(filtered_on_day)-1))*(index))),
+                )
+                cursor.execute(sql, val)
+            db_connection.commit()
+
+
+    for wl in watchlists: # Iterating all watchlists
+        sql = f"SELECT * FROM {DATABASE}.input WHERE `watchlist_id`={wl['id']}"
+        cursor.execute(sql)
+        wl_items = cursor.fetchall()
+        for wli in wl_items:
+            for rsl_date in rsl_days_dates[len(rsl_days_dates)-int(settings['reported_days']):]:
+                tsi_days_sum = 0
+                sql = f"select * from all_ranks_calculations rc where symbol = '{wli['symbol']}' and `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}'"
+                cursor.execute(sql)
+                day_of_rsl_rank = cursor.fetchall()[0]
+                sql = f"select * from all_ranks_calculations where symbol = '{wli['symbol']}' and date < date('{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}') order by date desc limit {int(settings['moving_average_TSI'])}"
+                cursor.execute(sql)
+                tsi_days_data = cursor.fetchall()
+                for i in tsi_days_data:
+                    tsi_days_sum = tsi_days_sum + i['rank_rsl_days_percentage']
+                tsi_mean_percentage = round(tsi_days_sum/len(tsi_days_data))
+                print(tsi_mean_percentage)
+                sql = f"UPDATE {DATABASE}.all_ranks_calculations SET `tsi_mean_percentage`={tsi_mean_percentage} WHERE `id`={day_of_rsl_rank['id']}"
+                cursor.execute(sql)
+                db_connection.commit()
+
+    for rsl_date in rsl_days_dates[len(rsl_days_dates)-int(settings['reported_days']):]:
+        sql = f"select * from all_ranks_calculations rc WHERE `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}' order by tsi_mean_percentage desc"
+        cursor.execute(sql)
+        tsi_mean_percentages_of_day = cursor.fetchall()
+        for index, item in enumerate(tsi_mean_percentages_of_day):
+            sql = f"UPDATE {DATABASE}.all_ranks_calculations SET `tsi_mean_percentage_rank`={index+1} WHERE `id`={item['id']}"
+            cursor.execute(sql)
+        db_connection.commit()
+
+    db_connection.close()
+    return 'Calculations and Ranking has been Completed for all'
+
+
+
 @app.route("/view-calculations", methods=['GET'])
 def view_calculations():
     db_connection = get_database_connection()
@@ -565,6 +682,22 @@ def view_calculations():
         max_ranking_date=max_date['max_date']
     )
 
+
+@app.route("/view-all-calculations", methods=['GET'])
+def view_all_calculations():
+    db_connection = get_database_connection()
+    cursor = db_connection.cursor(dictionary=True)
+    sql = f"select * from all_ranks_calculations rc where tsi_mean_percentage is not null"
+    cursor.execute(sql)
+    tsi_calculations = cursor.fetchall()
+    sql = f"select max(date) max_date from all_ranks_calculations"
+    cursor.execute(sql)
+    max_date = cursor.fetchall()[0]
+    return render_template(
+        'tsiAllCalculations.html',
+        tsi_calculations=enumerate(tsi_calculations),
+        max_ranking_date=max_date['max_date']
+    )
 
 
 if __name__ == '__main__':
