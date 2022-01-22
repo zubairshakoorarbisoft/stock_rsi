@@ -124,13 +124,19 @@ def upload_files():
         allow_pull = last_pulled_date.date() < dt.now().date()
         last_pulled = last_pulled_date.strftime('%d, %b %Y')
 
+    sql = f"SELECT * FROM {DATABASE}.datasource"
+    cursor.execute(sql)
+    datasource_items = cursor.fetchall()
     db_connection.close()
 
+    request.files = None
+    request.form = None
     return render_template(
         'csv.html',
         csv_records=csv_data,
         last_pulled=last_pulled,
-        allow_pull=allow_pull
+        allow_pull=allow_pull,
+        datasource_items=datasource_items
     )
 
 

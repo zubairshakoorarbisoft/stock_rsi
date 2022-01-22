@@ -3,7 +3,7 @@
 {% block content %}
 <div class="row">
     <div class="col-md-6">
-        <form method="POST" action="/" enctype="multipart/form-data">
+        <form id="importForm" method="POST" action="/" enctype="multipart/form-data">
             <strong>Upload your CSV file here..</strong>
             <p>
               <label for="datasource_id" class="form-label">Data Source</label>
@@ -14,7 +14,7 @@
                     {% endfor %}
                   </select>
             </p>
-        <p><input class="btn btn-sm btn-primary" type="file" name="file" accept=".csv" required> <input class="btn btn-primary" type="submit" value="Import"></p>
+        <p><input class="btn btn-sm btn-primary" type="file" name="file" accept=".csv" required> <input class="btn btn-primary" type="submit"  value="Import"></p>
         <p>Last Pulled on: <strong>{{last_pulled}}</strong></p>
         <p>
           <button
@@ -86,7 +86,7 @@
 <script>
     $(document).ready( function () {
     $('#data').DataTable();
-  });
+    });
 
   function pullPriceData(){
         $('#btnPullData').addClass('disabled');
@@ -95,7 +95,11 @@
         function(data, status){
           window.location.reload();
         })
-    }
+  }
+  // Will take care the reform submission, if its already submitted
+  if ( window.history.replaceState ) {
+  window.history.replaceState( null, null, window.location.href );
+  }
 
 </script>
 

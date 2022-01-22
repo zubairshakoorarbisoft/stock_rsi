@@ -8,14 +8,16 @@
         id="btnCalculateStockRSI"
         type="button"
         class="btn btn-primary" 
-        onclick="calculateStockRSI()"
+        data-bs-toggle="modal" 
+        data-bs-target="#alertModalForCalculations"
       >
       Calculate
       </button> | <button
         id="btnAllCalculateStockRSI"
         type="button"
         class="btn btn-primary" 
-        onclick="calculateAllStockRSI()"
+        data-bs-toggle="modal" 
+        data-bs-target="#alertModalForCalculationsAll"
       >
         Calculate All
       </button> | <a
@@ -82,6 +84,38 @@
         </div>
       </div>
     </div>
+</div>
+
+
+<div class="modal fade" tabindex="-1" id="alertModalForCalculations">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><strong>Note:</strong> Make sure you have pulled data for selected watchlists to be calculated.</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-bs-dismiss="modal" >Try Later</button>
+          <a class="btn btn-sm btn-danger" onclick="calculateStockRSI()" data-bs-dismiss="modal">Yes, Proceed</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" tabindex="-1" id="alertModalForCalculationsAll">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><strong>Note:</strong> Make sure you have pulled data for selected watchlists to be calculated.</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-bs-dismiss="modal" >Try Later</button>
+          <a class="btn btn-sm btn-danger" onclick="calculateAllStockRSI()" data-bs-dismiss="modal">Yes, Proceed</a>
+      </div>
+    </div>
+  </div>
 </div>
 
 
