@@ -165,10 +165,10 @@ def watchlist_index():
             cursor.execute(sql)
             items = cursor.fetchall()
             sql = '''select * from all_ranks_calculations arc where date = (select max(date) from 
-                all_ranks_calculations arc) 
-                group by symbol  order by tsi_mean_percentage desc'''
+                all_ranks_calculations arc) order by tsi_mean_percentage desc'''
             cursor.execute(sql)
             top_2_ranked_data = cursor.fetchall()
+            top_2_ranked_data = list({v['symbol']:v for v in top_2_ranked_data}.values())
             db_connection.close()
             return render_template(
                 "watchlistIndex.html",
