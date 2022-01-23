@@ -163,17 +163,34 @@ def watchlist_index():
             cursor = db_connection.cursor(dictionary=True)
             sql = f"SELECT * FROM {DATABASE}.watchlist"
             cursor.execute(sql)
-            items = cursor.fetchall()
-            sql = '''select * from all_ranks_calculations arc where date = (select max(date) from 
-                all_ranks_calculations arc) order by tsi_mean_percentage desc'''
+            watchlists = cursor.fetchall()
+            sql = '''select * from all_ranks_calculations arc where 
+                    date = (select max(date) from all_ranks_calculations arc_max)'''
             cursor.execute(sql)
             top_2_ranked_data = cursor.fetchall()
-            top_2_ranked_data = list({v['symbol']:v for v in top_2_ranked_data}.values())
+            wl_ids_of_combinedTop_ranks = {i['watchlist_id'] for i in top_2_ranked_data}
+            top_2_ranks_of_combined_lists = []
+            for wl_id in wl_ids_of_combinedTop_ranks:
+                top_2_of_a_watchlist = list(filter(
+                        lambda wl_value: wl_value['watchlist_id'] == wl_id,
+                        top_2_ranked_data
+                    ))
+                # Filtering unique symbols records
+                top_2_of_a_watchlist = list({v['symbol']:v for v in top_2_of_a_watchlist}.values())
+                top_2_of_a_watchlist.sort(key=lambda x: x['tsi_mean_percentage_rank'], reverse=False)
+                top_2_ranks_of_combined_lists.append(
+                    [
+                        list(filter(
+                            lambda wl_value: wl_value['id'] == wl_id,
+                            watchlists
+                        ))[0]['name'], enumerate(top_2_of_a_watchlist if len(top_2_of_a_watchlist) < 2 else top_2_of_a_watchlist[0:2])
+                    ]
+                )
             db_connection.close()
             return render_template(
                 "watchlistIndex.html",
-                watchlist_records=items,
-                top_2_ranked_data=top_2_ranked_data
+                watchlist_records=watchlists,
+                top_2_ranks_of_combined_lists=top_2_ranks_of_combined_lists
             )
     elif(request.method == 'POST'):
         db_connection = get_database_connection()
@@ -567,7 +584,7 @@ def calculate_stock_rsi():
     return 'Calculations and Ranking has been Completed'
 
 
-@app.route('/calculate-all-stock-rsi', methods=['GET'])
+@app.route('/calculate-combined-stock-rsi', methods=['POST'])
 def calculate_all_stock_rsi():
     settings = get_stock_rsi_settings()
     db_connection = get_database_connection()
@@ -575,7 +592,11 @@ def calculate_all_stock_rsi():
     sql = f"delete from `all_ranks_calculations`"
     cursor.execute(sql)
     db_connection.commit()
-    sql = f"SELECT * FROM {DATABASE}.watchlist"
+    breakpoint()
+    if(len(request.form.get('selectedWLs').split(',')) > 0):
+        sql = f"SELECT * FROM {DATABASE}.watchlist where id in ({request.form.get('selectedWLs')})"
+    else:
+        sql = f"SELECT * FROM {DATABASE}.watchlist"
 
     cursor.execute(sql)
     watchlists = cursor.fetchall()
@@ -684,7 +705,7 @@ def calculate_all_stock_rsi():
 def view_calculations():
     db_connection = get_database_connection()
     cursor = db_connection.cursor(dictionary=True)
-    sql = f"select * from ranks_calculations rc where watchlist_id = {request.args.get('wl_id')} and tsi_mean_percentage is not null"
+    sql = f"select * from ranks_calculations rc where watchlist_id = {request.args.get('wl_id')} and tsi_mean_percentage is not null order by date desc"
     cursor.execute(sql)
     tsi_calculations = cursor.fetchall()
     sql = f"select max(date) max_date from ranks_calculations"
@@ -702,7 +723,7 @@ def view_calculations():
 def view_all_calculations():
     db_connection = get_database_connection()
     cursor = db_connection.cursor(dictionary=True)
-    sql = f"select * from all_ranks_calculations rc where tsi_mean_percentage is not null"
+    sql = f"select * from all_ranks_calculations rc where tsi_mean_percentage is not null order by date desc"
     cursor.execute(sql)
     tsi_calculations = cursor.fetchall()
     sql = f"select max(date) max_date from all_ranks_calculations"

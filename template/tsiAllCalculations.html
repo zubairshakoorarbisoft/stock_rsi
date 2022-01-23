@@ -20,7 +20,7 @@
                 <tr>
                   <td>{{r['date'].strftime('%d, %b %Y')}}</td>
                   <td>{{r['symbol']}}</td>
-                  <td>{{r['tsi_mean_percentage']}}</td>
+                  <td>{{r['tsi_mean_percentage']}}%</td>
                   <td>{{r['tsi_mean_percentage_rank']}}</td>
                 </tr>
               {% endfor %}
@@ -32,7 +32,9 @@
 
 <script>
     $(document).ready( function () {
-     tableDatatable = $('#data').DataTable();
+     $('#data').DataTable({ 
+      "aaSorting": []
+    });
     })
 </script>
 
