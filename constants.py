@@ -1,0 +1,6 @@
+SERVER = 'localhost'
+DATABASE = 'stock_rsi'
+USERNAME = 'zubair'
+PASSWORD = 'lahore2020'
+
+GURUFOCUS_TOKEN = '9b90c7186e002495a45e55e1c41f68b0:557f472f7e555b53d79e93fad82771a8'

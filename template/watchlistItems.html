@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="row mt-1">
+    <div class="col-md-12">
+        <h4>Participents under ["{{wl_name}}"]</h4>
+        <table id="data" class="table table-striped" style="width: 100%;">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Close Price</th>
+                <th>Company</th>
+                <th>Ticker/Symbol</th>
+                <th>Data Source</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for wl_i in wl_items %}
+                <tr>
+                  <td>{{'Not Pulled' if wl_i['close_date'] == None else wl_i['close_date'].strftime('%d, %b %Y')}}</td>
+                  <td>{{'Not Pulled' if wl_i['close_price'] == None else wl_i['close_price']}}</td>
+                  <td>{{wl_i['company']}}</td>
+                  <td>{{wl_i['symbol']}}</td>
+                  <td>{{wl_i['name']}}</td>
+                  <td>
+                    <button id="btnDelWLItem" class="btn btn-sm btn-danger" href="/delete-watchlist-item?id={{wl_i['input_id_pk']}}" data-bs-toggle="modal" data-bs-target="#delWatchlistItemModal">Remove</button> | <a class="btn btn-sm btn-primary" href="/edit-watchlist-item?id={{wl_i['input_id_pk']}}">Edit</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+    </div>
+</div>
+
+
+<div class="modal fade" tabindex="-1" id="delWatchlistItemModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Are you sure, you want to delete ?</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-bs-dismiss="modal" >No</button>
+            <a class="btn btn-sm btn-danger" onclick="deleteWLItem()">Yes</a>
+        </div>
+      </div>
+    </div>
+</div>
+
+
+<script>
+    $(document).ready( function () {
+    $('#data').DataTable();
+    });
+
+    function deleteWLItem(element){
+        $.get("http://localhost:8000"+$('#btnDelWLItem').attr('href'),
+        function(data, status){
+            window.location.reload()
+        })
+    }
+
+</script>
+
+{% endblock %}

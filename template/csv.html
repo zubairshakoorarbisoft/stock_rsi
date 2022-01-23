@@ -1,0 +1,106 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <form id="importForm" method="POST" action="/" enctype="multipart/form-data">
+            <strong>Upload your CSV file here..</strong>
+            <p>
+              <label for="datasource_id" class="form-label">Data Source</label>
+                <select name="datasource_id" id="datasource_id" class="form-select" required>
+                    <option value="">Select Data Source</option>
+                    {% for dsi in datasource_items %}
+                    <option value="{{dsi['id']}}">{{dsi['name']}}</option>
+                    {% endfor %}
+                  </select>
+            </p>
+        <p><input class="btn btn-sm btn-primary" type="file" name="file" accept=".csv" required> <input class="btn btn-primary" type="submit"  value="Import"></p>
+        <p>Last Pulled on: <strong>{{last_pulled}}</strong></p>
+        <p>
+          <button
+            type="button"
+            id="btnPullData"
+            data-bs-toggle="modal"
+            data-bs-target="#pullDataConfirmationModal"
+            class="btn btn-sm btn-primary {{'disabled' if not allow_pull }}" {% if not allow_pull %} disabled {% endif %}
+          >
+            Pull Prices
+          </button> | <a 
+                        class="btn btn-sm btn-info" 
+                        target="_blank" 
+                        href="/view-pull-data-history" 
+                      >
+                        Pull History
+                      </a>
+          </p>
+        <p><strong><span id="progressMessage" class="text-success"></span></strong></p>
+      </form>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <table id="data" class="table table-striped" style="width: 100%;">
+            <thead>
+              <tr>
+                <th>Company Name</th>
+                <th>Ticker Symbol</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in csv_records %}
+                <tr>
+                  <td>{{ r['company'] }}</td>
+                  <td>{{ r['symbol'] }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+    </div>
+</div>
+
+
+
+<div class="modal fade" tabindex="-1" id="pullDataConfirmationModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmation Alert</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label>1. Yahoo Finance API:</label>
+        <p>When you click Pull Price, it would pull the data for last 200 days. If there is already 200 days data there, then just pull the data for selected days till today to complete recent 200 days data</p>
+        <label>2. Gurufocus API:</label>
+        <p class="text-danger">When you click Pull Price, it would first delete all existing data for Gurufocus API and will pull data for last 300 days for every ticker of Gurufocus CSV file records, There is 1 minute wait for a request so due to this, it may take some time, <strong>Can calculate by Number of Records in CSV X 1 minute + 2 minutes. E.G. 32X1+2=34 Minutes and 10 minutes of Yahoo API</strong></p>
+        <h3>Are you sure you want to continue?</h3>
+      </div>
+      <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-bs-dismiss="modal" >No</button>
+          <a class="btn btn-sm btn-danger" onclick="pullPriceData()" data-bs-dismiss="modal">Yes</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    $(document).ready( function () {
+    $('#data').DataTable();
+    });
+
+  function pullPriceData(){
+        $('#btnPullData').addClass('disabled');
+        $('#progressMessage').text('Pulling Price Data ...')
+        $.get("http://localhost:8000/pull-price-data",
+        function(data, status){
+          window.location.reload();
+        })
+  }
+  // Will take care the reform submission, if its already submitted
+  if ( window.history.replaceState ) {
+  window.history.replaceState( null, null, window.location.href );
+  }
+
+</script>
+
+{% endblock %}

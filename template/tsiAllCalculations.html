@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="row mt-1">
+    <div class="col-md-12">
+        <h3>TSI Ranking for All Watchlists</h3>
+        <p><strong>Max Ranking Date: </strong> {{'N/A' if max_ranking_date == None else max_ranking_date.strftime('%d, %b %Y')}} </p>
+        <table id="data" class="table table-striped" style="width: 100%;">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Ticker</th>
+                <th>TSI Mean %</th>
+                <th>Rank</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for index, r in tsi_calculations %}
+                <tr>
+                  <td>{{r['date'].strftime('%d, %b %Y')}}</td>
+                  <td>{{r['symbol']}}</td>
+                  <td>{{r['tsi_mean_percentage']}}%</td>
+                  <td>{{r['tsi_mean_percentage_rank']}}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+    </div>
+</div>
+
+<script>
+    $(document).ready( function () {
+     $('#data').DataTable({ 
+      "aaSorting": []
+    });
+    })
+</script>
+
+{% endblock %}

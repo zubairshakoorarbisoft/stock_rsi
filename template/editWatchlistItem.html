@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="row mt-1">
+    <div class="col-md-12">
+        <span class="text-success" role="alert">
+            <strong>{{message}}</strong>
+        </span>
+        <form action="/edit-watchlist-item" method="POST">
+            <input type="hidden" value="{{model['id']}}" name="id" />
+            <div class="mb-3">
+              <label for="watchlist_id" class="form-label">Watchlist</label>
+              <select name="watchlist_id" id="watchlist_id" class="form-select" required>
+                <option value="">Select Watchlist</option>
+                {% for wli in watchlist_items %}
+                <option value="{{wli['id']}}" {% if model['watchlist_id']==wli['id'] %} selected {% endif %}>{{wli['name']}}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="company" class="form-label">Company</label>
+              <input type="text" class="form-control" name="company" id="company" value="{{model['company']}}" required>
+            </div>
+            <div class="mb-3">
+                <label for="symbol" class="form-label">Symbol</label>
+                <input type="text" class="form-control" name="symbol" id="symbol" value="{{model['symbol']}}" required>
+            </div>
+            <div class="mb-3">
+                <label for="price" class="form-label">Price</label>
+                <input type="number" step="0.0001" class="form-control" name="price" id="price" value="{{model['price']}}">
+            </div>
+            <div class="mb-3">
+                <label for="datasource_id" class="form-label">Data Source</label>
+                <select name="datasource_id" id="datasource_id" class="form-select" required>
+                    <option value="">Select Data Source</option>
+                    {% for dsi in datasource_items %}
+                    <option value="{{dsi['id']}}" {% if model['datasource_id']==dsi['id'] %} selected {% endif %}>{{dsi['name']}}</option>
+                    {% endfor %}
+                  </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Update</button>
+          </form>
+    </div>
+</div>
+
+{% endblock %}

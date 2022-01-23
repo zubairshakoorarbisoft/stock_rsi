@@ -1,0 +1,306 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="row mt-1">
+    <div class="col-md-12">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWatchlistModal">+</button> | <button
+        id="btnCalculateStockRSI"
+        type="button"
+        class="btn btn-primary" 
+        data-bs-toggle="modal" 
+        data-bs-target="#alertModalForCalculations"
+      >
+      Calculate
+      </button> | <button
+        id="btnAllCalculateStockRSI"
+        type="button"
+        class="btn btn-primary" 
+        data-bs-toggle="modal" 
+        data-bs-target="#alertModalForCalculationsAll"
+      >
+        Calculate Combined
+      </button> | <a
+      target="_blank"
+      href="/view-all-calculations"
+      class="btn btn-primary" 
+    >
+      View Combined Calculations
+    </a>
+      <p><strong><span id="progressMessage" class="text-success"></span></strong></p>
+    </div>
+</div>
+<h3 style="text-align: center; color: darkgreen;">TOP 2 RANKED WATCHLISTS</h3>
+<hr/>
+<div class="row">
+  {% for wl in top_2_ranks_of_combined_lists %}
+  <div class="col-md-4">
+    <h4 style="text-align: center;">{{wl[0]}}</h4>
+    <table class="table" style="width: 100%;">
+      <thead>
+        <tr style="text-align: center;">
+          <th>Date</th>
+          <th>Ticker</th>
+          <th>Percentage</th>
+          <th>Rank</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for index, r in wl[1] %}
+          <tr style="text-align: center;">
+            <td>{{r['date'].strftime('%d, %b %Y')}}</td>
+            <td>{{r['symbol']}}</td>
+            <td>{{r['tsi_mean_percentage']}}%</td>
+            <td style="font-weight: bold; background-color: lightgreen; text-align: center;">{{index+1}}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+</div>
+<hr/>
+<div class="row">
+  <div class="col-md-12">
+    <h4>Watchlists</h4>
+    <table id="data" class="table table-striped" style="width: 100%;">
+          <thead>
+            <tr>
+              <th>Watchlist</th>
+              <th style="text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in watchlist_records %}
+              <tr>
+                <td><a selected_wl_id="{{r['id']}}" href="/view-watchlist?watchlist_id={{r['id']}}&watchlist_name={{r['name']}}">{{ r['name'] }}</a></td>
+                <td style="text-align: center;">
+                  <button 
+                    class="btn btn-sm btn-danger" 
+                    name="{{r['name']}}" 
+                    href="/watchlist?id={{r['id']}}" 
+                    onclick="showDelModal(this)"
+                  >
+                    Remove
+                  </button> | <a 
+                                class="btn btn-sm btn-primary" 
+                                id="{{r['id']}}" 
+                                name="{{r['name']}}"
+                                onclick='showEditModal(this)'
+                              >
+                              Rename
+                            
+                            </a> | <a 
+                            target="_blank"
+                            class="btn btn-sm btn-primary" 
+                            href="/view-calculations?wl_id={{r['id']}}&watchlist_name={{r['name']}}"
+                          >
+                          View Calculation
+                        </a>
+              </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+    </table>
+  </div>
+</div>
+
+
+
+<div class="modal fade" tabindex="-1" id="delWatchlistModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Are you sure, you want to delete <span id="wlToDel"></span> ?</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-bs-dismiss="modal" >No</button>
+            <a class="btn btn-sm btn-danger" id="btnConfrimDel">Yes</a>
+        </div>
+      </div>
+    </div>
+</div>
+
+
+<div class="modal fade" tabindex="-1" id="alertModalForCalculations">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><strong>Note:</strong> Make sure you have pulled data for selected watchlists to be calculated.</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-bs-dismiss="modal" >Try Later</button>
+          <a class="btn btn-sm btn-danger" onclick="calculateStockRSI()" data-bs-dismiss="modal">Yes, Proceed</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" tabindex="-1" id="alertModalForCalculationsAll">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><strong>Note:</strong> Make sure you have pulled data for selected watchlists to be calculated.</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-bs-dismiss="modal" >Try Later</button>
+          <a class="btn btn-sm btn-danger" onclick="calculateAllStockRSI()" data-bs-dismiss="modal">Yes, Proceed</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" tabindex="-1" id="addWatchlistModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add Watchlist</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <label>Name</label>
+          <input class="form-control" type="text" placeholder="Enter watchlist name" id="watchlistName" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnAddWatchlist">Add</button>
+        </div>
+      </div>
+    </div>
+</div>
+
+
+  <div class="modal fade" tabindex="-1" id="editWatchlistModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Update Watchlist</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <label>Name</label>
+          <input hidden id="watchlistIdEdit" />
+          <input class="form-control" type="text" placeholder="Enter watchlist name" id="watchlistNameEdit" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="btnEditWatchlist">Update</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+  var tableDatatable = undefined;
+    $(document).ready( function () {
+     tableDatatable = $('#data').DataTable();
+    $('#data tbody').on('click', 'tr', function () {
+        $(this).toggleClass('selected-row');
+    } );
+    $('#btnAddWatchlist').click(function () {
+        if(!(!!$('#watchlistName').val())){
+            alert('Name is required')
+            return false;
+        }
+
+        $.post("http://localhost:8000/watchlist",
+        {
+            name: $('#watchlistName').val(),
+        },
+        function(data, status){
+            window.location.href = '/watchlist'
+        })
+        })
+    });
+
+    
+
+    $('#btnEditWatchlist').click(function () {
+        if(!(!!$('#watchlistNameEdit').val())){
+            alert('Name is required')
+            return false;
+        }
+        $.post("http://localhost:8000/watchlist",
+        {
+            id: $('#watchlistIdEdit').val(),
+            name: $('#watchlistNameEdit').val()
+        },
+        function(data, status){
+            window.location.href = '/watchlist'
+        })
+    });
+
+    function showEditModal(element) {
+        $('#watchlistIdEdit').val(element.attributes['id'].value);
+        $('#watchlistNameEdit').val(element.attributes['name'].value);
+        $('#editWatchlistModal').modal('show');
+    }
+
+    function showDelModal(element){
+        $('#btnConfrimDel').attr('href', element.attributes['href'].value)
+        $('#wlToDel').text(element.attributes['name'].value);
+        $('#delWatchlistModal').modal('show');
+    }
+
+    function calculateStockRSI(){
+      var selectedWLIds = []
+      var selectedRows = tableDatatable.rows('.selected-row').data();
+      for (let i = 0; i < selectedRows.length; i++) {
+        selectedWLIds.push(
+          parseInt(
+            selectedRows[i][0].split('selected_wl_id="')[1].split('"')[0]
+            )
+            )
+      }
+      if(selectedWLIds.length < 1){
+        alert('Please select atleast one Watchlist to proceed')
+        return false
+      }
+        $('#progressMessage').text('Calculating for selected watchlists...')
+        $('#btnCalculateStockRSI').addClass('disabled');
+        $.post("http://localhost:8000/calculate-stock-rsi",
+        { selectedWLs: selectedWLIds.toString() },
+        function(data, status){
+          $('#progressMessage').text(data)
+          $('#btnCalculateStockRSI').removeClass('disabled');
+        }).fail(function (status, statusText) {
+          alert('Something Went Wrong!')
+          $('#progressMessage').text('')
+          $('#btnCalculateStockRSI').removeClass('disabled');
+        })
+    }
+
+    function calculateAllStockRSI(){
+      var selectedWLIds = []
+      var selectedRows = tableDatatable.rows('.selected-row').data();
+      for (let i = 0; i < selectedRows.length; i++) {
+        selectedWLIds.push(
+          parseInt(
+            selectedRows[i][0].split('selected_wl_id="')[1].split('"')[0]
+            )
+            )
+      }
+      if(selectedWLIds.length < 2){
+        alert('Please select atleast 2 Watchlists to proceed combined calculations')
+        return false
+      }
+        $('#progressMessage').text('Calculating for combined Watchlists ...')
+        $('#btnAllCalculateStockRSI').addClass('disabled');
+        $.post("http://localhost:8000/calculate-combined-stock-rsi",
+        { selectedWLs: selectedWLIds.toString() },
+        function(data, status){
+          window.location.reload()
+        }).fail(function (status, statusText) {
+          alert('Something Went Wrong!')
+          $('#progressMessage').text('')
+          $('#btnAllCalculateStockRSI').removeClass('disabled');
+        })
+    }
+
+</script>
+
+{% endblock %}
