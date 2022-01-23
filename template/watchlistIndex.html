@@ -28,18 +28,40 @@
       View All Calculations
     </a>
       <p><strong><span id="progressMessage" class="text-success"></span></strong></p>
+      <h4>Top 2 Ranked Tickers</h4>
+      <table class="table" style="width: 100%;">
+        <thead>
+          <tr style="text-align: center;">
+            <th>Date</th>
+            <th>Ticker</th>
+            <th>Percentage</th>
+            <th>Rank</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in top_2_ranked_data[0:2] %}
+            <tr style="text-align: center;">
+              <td>{{r['date'].strftime('%d, %b %Y')}}</td>
+              <td>{{r['symbol']}}</td>
+              <td>{{r['tsi_mean_percentage']}}%</td>
+              <td style="font-weight: bold; background-color: lightgreen; text-align: center;">{{r['tsi_mean_percentage_rank']}}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <h4>Watchlists</h4>
         <table id="data" class="table table-striped" style="width: 100%;">
             <thead>
               <tr>
                 <th>Watchlist</th>
-                <th>Actions</th>
+                <th style="text-align: center;">Actions</th>
               </tr>
             </thead>
             <tbody>
               {% for r in watchlist_records %}
                 <tr>
                   <td><a selected_wl_id="{{r['id']}}" href="/view-watchlist?watchlist_id={{r['id']}}&watchlist_name={{r['name']}}">{{ r['name'] }}</a></td>
-                  <td>
+                  <td style="text-align: center;">
                     <button 
                       class="btn btn-sm btn-danger" 
                       name="{{r['name']}}" 
@@ -244,8 +266,7 @@
         $('#btnAllCalculateStockRSI').addClass('disabled');
         $.get("http://localhost:8000/calculate-all-stock-rsi",
         function(data, status){
-          $('#progressMessage').text(data)
-          $('#btnAllCalculateStockRSI').removeClass('disabled');
+          window.location.reload()
         }).fail(function (status, statusText) {
           alert('Something Went Wrong!')
           $('#progressMessage').text('')

@@ -164,8 +164,17 @@ def watchlist_index():
             sql = f"SELECT * FROM {DATABASE}.watchlist"
             cursor.execute(sql)
             items = cursor.fetchall()
+            sql = '''select * from all_ranks_calculations arc where date = (select max(date) from 
+                all_ranks_calculations arc) 
+                group by symbol  order by tsi_mean_percentage desc'''
+            cursor.execute(sql)
+            top_2_ranked_data = cursor.fetchall()
             db_connection.close()
-            return render_template("watchlistIndex.html", watchlist_records=items)
+            return render_template(
+                "watchlistIndex.html",
+                watchlist_records=items,
+                top_2_ranked_data=top_2_ranked_data
+            )
     elif(request.method == 'POST'):
         db_connection = get_database_connection()
         cursor = db_connection.cursor()
