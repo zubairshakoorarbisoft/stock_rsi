@@ -20,7 +20,15 @@
         data-bs-target="#alertModalForCalculationsAll"
       >
         Calculate Combined
-      </button> | <a
+      </button> | <button
+      id="btnAllCombinedCalculateStockRSI"
+      type="button"
+      class="btn btn-primary" 
+      data-bs-toggle="modal" 
+      data-bs-target="#alertModalForCombinedCalculationsAll"
+    >
+      Calculate All Combined
+    </button> | <a
       target="_blank"
       href="/view-all-calculations"
       class="btn btn-primary" 
@@ -155,6 +163,22 @@
 </div>
 
 
+<div class="modal fade" tabindex="-1" id="alertModalForCombinedCalculationsAll">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><strong>Note:</strong> Make sure you have pulled data for selected watchlists to be calculated.</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-bs-dismiss="modal" >Try Later</button>
+          <a class="btn btn-sm btn-danger" onclick="calculateAllCombinedStockRSI()" data-bs-dismiss="modal">Yes, Proceed</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal fade" tabindex="-1" id="addWatchlistModal">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -254,7 +278,7 @@
           parseInt(
             selectedRows[i][0].split('selected_wl_id="')[1].split('"')[0]
             )
-            )
+          )
       }
       if(selectedWLIds.length < 1){
         alert('Please select atleast one Watchlist to proceed')
@@ -298,6 +322,20 @@
           alert('Something Went Wrong!')
           $('#progressMessage').text('')
           $('#btnAllCalculateStockRSI').removeClass('disabled');
+        })
+    }
+
+    function calculateAllCombinedStockRSI(){
+        $('#progressMessage').text('Calculating for all Watchlists ...')
+        $('#btnAllCombinedCalculateStockRSI').addClass('disabled');
+        $.post("http://localhost:8000/calculate-combined-stock-rsi",
+        { selectedWLs: '' },
+        function(data, status){
+          window.location.reload()
+        }).fail(function (status, statusText) {
+          alert('Something Went Wrong!')
+          $('#progressMessage').text('')
+          $('#btnAllCombinedCalculateStockRSI').removeClass('disabled');
         })
     }
 

@@ -592,8 +592,7 @@ def calculate_all_stock_rsi():
     sql = f"delete from `all_ranks_calculations`"
     cursor.execute(sql)
     db_connection.commit()
-    breakpoint()
-    if(len(request.form.get('selectedWLs').split(',')) > 0):
+    if(',' in request.form.get('selectedWLs')):
         sql = f"SELECT * FROM {DATABASE}.watchlist where id in ({request.form.get('selectedWLs')})"
     else:
         sql = f"SELECT * FROM {DATABASE}.watchlist"
