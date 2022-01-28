@@ -13,6 +13,14 @@
       >
       Calculate
       </button> | <button
+        id="btnAllCalculateAllNotCombinedStockRSI"
+        type="button"
+        class="btn btn-primary" 
+        data-bs-toggle="modal" 
+        data-bs-target="#alertModalForCalculateAllNotCombinedStockRSI"
+      >
+        Calculate All Not Combined
+      </button> | <button
         id="btnAllCalculateStockRSI"
         type="button"
         class="btn btn-primary" 
@@ -38,10 +46,12 @@
       <p><strong><span id="progressMessage" class="text-success"></span></strong></p>
     </div>
 </div>
-<h3 style="text-align: center; color: darkgreen;">TOP 2 RANKED WATCHLISTS</h3>
+<h3 style="text-align: center; color: darkgreen;">TOP 2 RANKED TICKERS IN WATCHLISTS</h3>
+<p><strong>Note:</strong><br>1. By default/As Standard, ranks will be come from combined calculations
+  <br>2. Individual calculations will only be shown in the absence of combined calculations</p>
 <hr/>
 <div class="row">
-  {% for wl in top_2_ranks_of_combined_lists %}
+  {% for wl in top_2_ranks_of_lists %}
   <div class="col-md-4">
     <h4 style="text-align: center;">{{wl[0]}}</h4>
     <table class="table" style="width: 100%;">
@@ -157,6 +167,22 @@
       <div class="modal-footer">
           <button type="button" class="btn btn-default" data-bs-dismiss="modal" >Try Later</button>
           <a class="btn btn-sm btn-danger" onclick="calculateAllStockRSI()" data-bs-dismiss="modal">Yes, Proceed</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" tabindex="-1" id="alertModalForCalculateAllNotCombinedStockRSI">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><strong>Note:</strong> Make sure you have pulled data for all watchlists to be calculated.</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-bs-dismiss="modal" >Try Later</button>
+          <a class="btn btn-sm btn-danger" onclick="calculateAllNotCombinedStockRSI()" data-bs-dismiss="modal">Yes, Proceed</a>
       </div>
     </div>
   </div>
@@ -289,8 +315,7 @@
         $.post("http://localhost:8000/calculate-stock-rsi",
         { selectedWLs: selectedWLIds.toString() },
         function(data, status){
-          $('#progressMessage').text(data)
-          $('#btnCalculateStockRSI').removeClass('disabled');
+          window.location.reload()
         }).fail(function (status, statusText) {
           alert('Something Went Wrong!')
           $('#progressMessage').text('')
@@ -322,6 +347,20 @@
           alert('Something Went Wrong!')
           $('#progressMessage').text('')
           $('#btnAllCalculateStockRSI').removeClass('disabled');
+        })
+    }
+
+    function calculateAllNotCombinedStockRSI() {
+        $('#progressMessage').text('Calculating for all not combined watchlists...')
+        $('#btnAllCalculateAllNotCombinedStockRSI').addClass('disabled');
+        $.post("http://localhost:8000/calculate-stock-rsi",
+        { selectedWLs: 'all' },
+        function(data, status){
+          window.location.reload()
+        }).fail(function (status, statusText) {
+          alert('Something Went Wrong!')
+          $('#progressMessage').text('')
+          $('#btnAllCalculateAllNotCombinedStockRSI').removeClass('disabled');
         })
     }
 

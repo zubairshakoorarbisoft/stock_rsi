@@ -5,7 +5,7 @@
 <div class="row mt-1">
     <div class="col-md-12">
         <h3>TSI Ranking for All Watchlists</h3>
-        <p><strong>Max Ranking Date: </strong> {{'N/A' if max_ranking_date == None else max_ranking_date.strftime('%d, %b %Y')}} </p>
+        <p><strong>Max Ranking Date: </strong> <span id="latestDate">{{'N/A' if max_ranking_date == None else max_ranking_date.strftime('%d, %b %Y')}}</span> </p>
         <table id="data" class="table table-striped" style="width: 100%;">
             <thead>
               <tr>
@@ -32,8 +32,11 @@
 
 <script>
     $(document).ready( function () {
-     $('#data').DataTable({ 
-      "aaSorting": []
+      $('#data').DataTable({ 
+      "order": [[ 3, "asc" ]],
+      "search": {
+        "search": $('#latestDate').text()
+      }
     });
     })
 </script>

@@ -159,6 +159,7 @@ def watchlist_index():
             db_connection.close()
             return redirect(url_for('watchlist_index'))
         else:
+            top_2_ranks_of_lists = []
             db_connection = get_database_connection()
             cursor = db_connection.cursor(dictionary=True)
             sql = f"SELECT * FROM {DATABASE}.watchlist"
@@ -169,28 +170,40 @@ def watchlist_index():
             cursor.execute(sql)
             top_2_ranked_data = cursor.fetchall()
             wl_ids_of_combinedTop_ranks = {i['watchlist_id'] for i in top_2_ranked_data}
-            top_2_ranks_of_combined_lists = []
-            for wl_id in wl_ids_of_combinedTop_ranks:
-                top_2_of_a_watchlist = list(filter(
-                        lambda wl_value: wl_value['watchlist_id'] == wl_id,
-                        top_2_ranked_data
-                    ))
-                # Filtering unique symbols records
-                top_2_of_a_watchlist = list({v['symbol']:v for v in top_2_of_a_watchlist}.values())
-                top_2_of_a_watchlist.sort(key=lambda x: x['tsi_mean_percentage_rank'], reverse=False)
-                top_2_ranks_of_combined_lists.append(
-                    [
-                        list(filter(
-                            lambda wl_value: wl_value['id'] == wl_id,
-                            watchlists
-                        ))[0]['name'], enumerate(top_2_of_a_watchlist if len(top_2_of_a_watchlist) < 2 else top_2_of_a_watchlist[0:2])
-                    ]
-                )
+            wl_ids_of_Top_ranks = []
+            if(len(wl_ids_of_combinedTop_ranks) > 0):
+                wl_ids_of_Top_ranks = wl_ids_of_combinedTop_ranks
+                
+            else:
+                sql = '''select * from ranks_calculations rc where 
+                    date = (select max(date) from ranks_calculations rc_max)'''
+                cursor.execute(sql)
+                top_2_ranked_data = cursor.fetchall()
+                wl_ids_of_Top_ranks = {i['watchlist_id'] for i in top_2_ranked_data}
+
+            for wl_id in wl_ids_of_Top_ranks:
+                    top_2_of_a_watchlist = list(filter(
+                            lambda wl_value: wl_value['watchlist_id'] == wl_id,
+                            top_2_ranked_data
+                        ))
+                    # Filtering unique symbols records
+                    top_2_of_a_watchlist = list({v['symbol']:v for v in top_2_of_a_watchlist}.values())
+                    top_2_of_a_watchlist.sort(key=lambda x: x['tsi_mean_percentage_rank'], reverse=False)
+                    top_2_ranks_of_lists.append(
+                        [
+                            list(filter(
+                                lambda wl_value: wl_value['id'] == wl_id,
+                                watchlists
+                            ))[0]['name'], enumerate(top_2_of_a_watchlist if len(top_2_of_a_watchlist) < 2 else top_2_of_a_watchlist[0:2])
+                        ]
+                    )
+
+            
             db_connection.close()
             return render_template(
                 "watchlistIndex.html",
                 watchlist_records=watchlists,
-                top_2_ranks_of_combined_lists=top_2_ranks_of_combined_lists
+                top_2_ranks_of_lists=top_2_ranks_of_lists
             )
     elif(request.method == 'POST'):
         db_connection = get_database_connection()
@@ -466,8 +479,10 @@ def calculate_stock_rsi():
     sql = f"delete from `ranks_calculations`"
     cursor.execute(sql)
     db_connection.commit()
-    sql = f"SELECT * FROM {DATABASE}.watchlist where id in ({request.form.get('selectedWLs')})"
-
+    if(request.form.get('selectedWLs') == 'all'):
+        sql = f"SELECT * FROM {DATABASE}.watchlist"
+    else:
+        sql = f"SELECT * FROM {DATABASE}.watchlist where id in ({request.form.get('selectedWLs')})"
     cursor.execute(sql)
     watchlists = cursor.fetchall()
     calculated_list_of_tickers_of_all_watchlists = []
@@ -480,12 +495,12 @@ def calculate_stock_rsi():
             sql = f"select * from price_data pd where symbol  = '{wli['symbol']}'" # Getting all existing price data of the symbol/Ticker
             cursor.execute(sql)
             all_price_data = cursor.fetchall()
-            all_price_data_of_rsl_days = all_price_data[(len(all_price_data) - int(settings['days_period_RSL'])):]
+            all_price_data_of_rsl_days = all_price_data[(len(all_price_data) - (int(settings['reported_days']) + int(settings['days_period_RSL']) + int(settings['moving_average_TSI']))):]
             # Step 1 Calculation
             for day_price_record in all_price_data_of_rsl_days:
-                if(len(rsl_days_dates) != int(settings['days_period_RSL'])):
+                if(len(rsl_days_dates) != (int(settings['reported_days']) + int(settings['days_period_RSL']) + int(settings['moving_average_TSI']))):
                     rsl_days_dates.append(day_price_record['date'])
-                RSL_period_data = all_price_data[(all_price_data.index(day_price_record) - int(settings['days_period_RSL'])) : all_price_data.index(day_price_record) - 1]
+                RSL_period_data = all_price_data[(all_price_data.index(day_price_record) - int(settings['days_period_RSL'])) - 1: all_price_data.index(day_price_record) - 1]
                 sum_of_previous_days_prices = 0.00
                 for day_data in RSL_period_data:
                     sum_of_previous_days_prices = sum_of_previous_days_prices + float(day_data['close_price'])
@@ -503,7 +518,7 @@ def calculate_stock_rsi():
         rsl_rank_calculations = []
         for rsl_date in rsl_days_dates:
             filtered_on_day = list(filter(
-                        lambda day_value: day_value['date'] == rsl_date,
+                        lambda day_value: day_value['date'] == rsl_date and day_value['watchlist_id'] == wl['id'],
                         calculated_list_of_tickers_of_all_watchlists
                     ))
             if(len(filtered_on_day) > 1):
@@ -536,12 +551,12 @@ def calculate_stock_rsi():
                 db_connection.commit()
 
 
-    for wl in watchlists: # Iterating all watchlists
+    for wl in watchlists: # Iterating all watchlists for tsi
         sql = f"SELECT * FROM {DATABASE}.input WHERE `watchlist_id`={wl['id']}"
         cursor.execute(sql)
         wl_items = cursor.fetchall()
         for wli in wl_items:
-            for rsl_date in rsl_days_dates[len(rsl_days_dates)-int(settings['reported_days']):]:
+            for rsl_date in rsl_days_dates[len(rsl_days_dates)-((int(settings['reported_days']) + int(settings['moving_average_TSI']))):]:
                 tsi_days_sum = 0
                 sql = f"select * from ranks_calculations rc where symbol = '{wli['symbol']}' and `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}'"
                 cursor.execute(sql)
@@ -558,17 +573,8 @@ def calculate_stock_rsi():
                 db_connection.commit()
 
 
-    # Ranking TSI Percentages
-    # for rsl_date in rsl_days_dates[len(rsl_days_dates)-int(settings['reported_days']):]:
-    #     sql = f"select * from ranks_calculations rc WHERE `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}' order by tsi_mean_percentage desc"
-    #     cursor.execute(sql)
-    #     tsi_mean_percentages_of_day = cursor.fetchall()
-    #     for index, item in enumerate(tsi_mean_percentages_of_day):
-    #         sql = f"UPDATE {DATABASE}.ranks_calculations SET `tsi_mean_percentage_rank`={index+1} WHERE `id`={item['id']}"
-    #         cursor.execute(sql)
-    #     db_connection.commit()
-
-    for rsl_date in rsl_days_dates[len(rsl_days_dates)-int(settings['reported_days']):]:
+    
+    for rsl_date in rsl_days_dates[len(rsl_days_dates)-((int(settings['reported_days']) + int(settings['moving_average_TSI']))):]:
         for wl in watchlists:
             sql = f"select * from ranks_calculations rc WHERE watchlist_id={wl['id']} and `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}' order by tsi_mean_percentage desc"
             cursor.execute(sql)
@@ -609,12 +615,14 @@ def calculate_all_stock_rsi():
             sql = f"select * from price_data pd where symbol  = '{wli['symbol']}'" # Getting all existing price data of the symbol/Ticker
             cursor.execute(sql)
             all_price_data = cursor.fetchall()
-            all_price_data_of_rsl_days = all_price_data[(len(all_price_data) - int(settings['days_period_RSL'])):]
+            all_price_data_of_rsl_days = all_price_data[
+                (len(all_price_data) - (int(settings['reported_days']) + int(settings['days_period_RSL']) + int(settings['moving_average_TSI'])))
+                :]
             # Step 1 Calculation
             for day_price_record in all_price_data_of_rsl_days:
-                if(len(rsl_days_dates) != int(settings['days_period_RSL'])):
+                if(len(rsl_days_dates) != (int(settings['reported_days']) + int(settings['days_period_RSL']) + int(settings['moving_average_TSI']))):
                     rsl_days_dates.append(day_price_record['date'])
-                RSL_period_data = all_price_data[(all_price_data.index(day_price_record) - int(settings['days_period_RSL'])) : all_price_data.index(day_price_record) - 1]
+                RSL_period_data = all_price_data[(all_price_data.index(day_price_record) - int(settings['days_period_RSL'])) - 1: all_price_data.index(day_price_record) - 1]
                 sum_of_previous_days_prices = 0.00
                 for day_data in RSL_period_data:
                     sum_of_previous_days_prices = sum_of_previous_days_prices + float(day_data['close_price'])
@@ -665,12 +673,14 @@ def calculate_all_stock_rsi():
             db_connection.commit()
 
 
-    for wl in watchlists: # Iterating all watchlists
+    for wl in watchlists: # Iterating all watchlists for tsi
         sql = f"SELECT * FROM {DATABASE}.input WHERE `watchlist_id`={wl['id']}"
         cursor.execute(sql)
         wl_items = cursor.fetchall()
         for wli in wl_items:
-            for rsl_date in rsl_days_dates[len(rsl_days_dates)-int(settings['reported_days']):]:
+            for rsl_date in rsl_days_dates[
+                len(rsl_days_dates)-(int(settings['reported_days']) + int(settings['moving_average_TSI']))
+                :]:
                 tsi_days_sum = 0
                 sql = f"select * from all_ranks_calculations rc where symbol = '{wli['symbol']}' and `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}'"
                 cursor.execute(sql)
@@ -686,7 +696,7 @@ def calculate_all_stock_rsi():
                 cursor.execute(sql)
                 db_connection.commit()
 
-    for rsl_date in rsl_days_dates[len(rsl_days_dates)-int(settings['reported_days']):]:
+    for rsl_date in rsl_days_dates[len(rsl_days_dates)-(int(settings['reported_days']) + int(settings['moving_average_TSI'])):]:
         sql = f"select * from all_ranks_calculations rc WHERE `date`='{rsl_date.strftime('%Y-%m-%d %H:%M:%S')}' order by tsi_mean_percentage desc"
         cursor.execute(sql)
         tsi_mean_percentages_of_day = cursor.fetchall()
