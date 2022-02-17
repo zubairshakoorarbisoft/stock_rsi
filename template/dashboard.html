@@ -1,0 +1,313 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+
+<style>
+
+.speedo-meter{
+  height:160px;
+  width:320px;
+}
+.wrap{
+  position:absolute;
+  top:210px;
+  left:50px;
+}
+.zero{
+  top: -20px;
+  left: -100px;
+  position: relative;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.one-hundred{
+  top: -50px;
+  left: 98px;
+  position: relative;
+  font-size: 20px;
+  font-weight: bold;
+}
+.traffic-light{
+  height: 50px;
+  width: 50px;
+  border-radius: 25px;
+}
+.light-off{
+  background-color: lightgrey !important;
+}
+</style>
+
+<div id="loaderDiv" class="row" style="text-align: center; margin-top: 20%;">
+  <div class="col-md-12">
+    <strong style="font-size: 40px;">Loading Dashboard </strong>
+    <div class="spinner-grow" style="margin-left: 2px;width: 1rem; height: 1rem;" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <div class="spinner-grow" style="margin-left: 2px;width: 1.3rem; height: 1.3rem;" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <div class="spinner-grow" style="margin-left: 2px; width: 1.6em; height: 1.6rem;" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+</div>
+
+<div id="dashboardContainer" style="display: none;">
+  <div class="row mt-3">
+    <div class="col-md-1 traffic-light" style="background-color: green; margin-left: 60px;" id="buyLight"></div>
+    <div class="col-md-1 traffic-light ml-2" style="background-color: red; margin-left: 60px;" id="sellLight"></div>
+  </div>
+  
+  <div class="row">
+    <div class="col-md-12">
+      <div class="accordion mt-5" id="accordionExample">
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingOne">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+              Fear & Greed
+            </button>
+          </h2>
+          <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+            <div class="accordion-body">
+              <div class="row justify-content-center">
+                 <div class="col-md-5" style="text-align: center;">
+                  <canvas id="fearAndGreedMeter" class="speedo-meter"></canvas>
+                  <div class="zero">0</div>
+                  <div class="one-hundred">100</div>
+                  <div class="wrap"></div>
+                </div>
+                <div class="col-md-5" id="indexesPreviousDaysContainer"></div>
+                <div class="col-md-9">
+                  <canvas id="fearAndGreedChart"><span>Loading Visual ...</span></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingTwo">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+              EUWAX
+            </button>
+          </h2>
+          <div id="collapseTwo" class="accordion-collapse collapse show" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
+            <div class="accordion-body">
+              <div class="row">
+                <div class="col-md-5" style="text-align: center;">
+                  <canvas id="EUWAXMeter" class="speedo-meter"></canvas>
+                  <div class="zero">-15</div>
+                  <div class="one-hundred">10</div>
+                  <div class="wrap"></div>
+                </div>
+                <div class="col-md-7">
+                   <div>
+                    <canvas id="euwaxChart"><span>Loading Visual ...</span></canvas>
+                  </div>
+                </div>
+            </div>
+            </div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingThree">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+              VIX
+            </button>
+          </h2>
+          <div id="collapseThree" class="accordion-collapse collapse show" aria-labelledby="headingThree" data-bs-parent="#accordionExample">
+            <div class="accordion-body">
+              <div class="row">
+                <div class="col-md-5" style="text-align: center;">
+                  <canvas id="VIXMeter" class="speedo-meter"></canvas>
+                  <div class="zero">0</div>
+                  <div class="one-hundred">100</div>
+                  <div class="wrap"></div>
+                </div>
+                <div class="col-md-7">
+                  <div>
+                   <canvas id="VIXChart"><span>Loading Visual ...</span></canvas>
+                  </div>
+               </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+
+// Speedo Meter Code Start
+var opts = {
+  lines: 12, // The number of lines to draw
+  angle: 0.00, // The length of each line
+  lineWidth: 0.44, // The line thicknes
+  pointer: {
+    length: 0.5, // The radius of the inner circle
+    strokeWidth: 0.035, // The rotation offset
+    color: 'red' // Fill color
+  },
+  limitMax: false,   // If true, the pointer will not go past the end of the gauge
+  colorStart: 'red',   // Colors
+  colorStop: '#8FC0DA',    // just experiment with them
+  strokeColor: '#E0E0E0',   // to see which ones work best for you
+  generateGradient: true
+};
+
+function setFandGMeter(event) {
+  if($(event).hasClass('collapsed') == false && window.data){
+    var fearAndGreedMeter = document.getElementById('fearAndGreedMeter'); 
+    var fGGauge = new Gauge(fearAndGreedMeter).setOptions(opts); 
+    fGGauge.maxValue = 100; // set max gauge value
+    fGGauge.animationSpeed = 32;
+    fGGauge.set(window.data.fear_and_greed_meter.y); // set actual value
+  }
+}
+
+function setEUWAXMeter(event) {
+  if($(event).hasClass('collapsed') == false && window.data){
+    var EUWAXMeter = document.getElementById('EUWAXMeter'); 
+    var euWaxGauge = new Gauge(EUWAXMeter).setOptions(opts); 
+    euWaxGauge.maxValue = 10; // set max gauge value
+    euWaxGauge.minValue = -15; // set max gauge value
+    euWaxGauge.animationSpeed = 32; 
+    euWaxGauge.set((window.data.euwax_meter == null)? -15: window.data.euwax_meter.y); // set actual value
+  }
+}
+
+function setVIXMeter(event){
+  if($(event).hasClass('collapsed') == false && window.data){
+    var VIXMeter = document.getElementById('VIXMeter'); 
+    var VIXGauge = new Gauge(VIXMeter).setOptions(opts); 
+    VIXGauge.maxValue = 100; // set max gauge value
+    VIXGauge.animationSpeed = 32; 
+    VIXGauge.set((window.data.vix_meter == null)? 0: window.data.vix_meter.y); // set actual value
+  }
+}
+
+$(document).ready(function () {
+  $.get( "http://localhost:8000/api/v1/all-history-data", function( data ) {
+  data = JSON.parse(data)
+  window.data = data
+  const totalDuration = 5000;
+  const delayBetweenPoints = totalDuration / data.length;
+  const previousY = (ctx) => ctx.index === 0 ? ctx.chart.scales.y.getPixelForValue(100) : ctx.chart.getDatasetMeta(ctx.datasetIndex).data[ctx.index - 1].getProps(['y'], true).y;
+  const animation = {
+    x: {
+      type: 'string',
+      easing: 'linear',
+      duration: delayBetweenPoints,
+      from: NaN, // the point is initially skipped
+      delay(ctx) {
+        if (ctx.type !== 'data' || ctx.xStarted) {
+          return 0;
+        }
+        ctx.xStarted = true;
+        return ctx.index * delayBetweenPoints;
+      }
+    },
+    y: {
+      type: 'number',
+      easing: 'linear',
+      duration: delayBetweenPoints,
+      from: previousY,
+      delay(ctx) {
+        if (ctx.type !== 'data' || ctx.yStarted) {
+          return 0;
+        }
+        ctx.yStarted = true;
+        return ctx.index * delayBetweenPoints;
+      }
+    }
+  };
+
+  const progressiveOptions = {
+    interaction: {
+      intersect: false
+    },
+    plugins: {
+      legend: false
+    }
+  }
+  const configFearAndGreed = {
+    type: 'line',
+    data: {
+      datasets: [{
+        borderColor: 'darkgrey',
+        borderWidth: 1,
+        radius: 0,
+        data: data.fear_and_greed,
+      }]
+    },
+    options: progressiveOptions,
+    };
+  const configEUWAX = {
+    type: 'line',
+    data: {
+      datasets: [{
+        borderColor: 'darkgrey',
+        borderWidth: 1,
+        radius: 0,
+        data: data.euwax,
+      }]
+    },
+    options: progressiveOptions,
+    };
+
+  const configVIX = {
+    type: 'line',
+    data: {
+      datasets: [{
+        borderColor: 'darkgrey',
+        borderWidth: 1,
+        radius: 0,
+        data: data.vix,
+      }]
+    },
+    options: progressiveOptions,
+    };
+
+  const fearAndGreedChart = new Chart(
+      document.getElementById('fearAndGreedChart'),
+      configFearAndGreed
+  );
+  const euwaxChart = new Chart(
+      document.getElementById('euwaxChart'),
+      configEUWAX
+  );
+  const VIXChart = new Chart(
+      document.getElementById('VIXChart'),
+      configVIX
+  );
+  var str = '<ul class="list-group" style="font-weight: bold;">'
+  window.data.fg_index_values.forEach(function(slide, index) {
+  str += '<li class="list-group-item '+ (index == 0? 'active': '') +'">'
+        + slide.day 
+        + ' ' 
+        + slide.value 
+        + '</li>';
+        // + '<span style="float: right;color: '+(slide.category == 'Fear'? 'red;': 'green;')+'">'+ slide.category +'</span></li>';
+  });
+  str += '</ul><small class="form-text text-muted">Last Updated on '+ data.last_updated_on + '</small>';
+  document.getElementById("indexesPreviousDaysContainer").innerHTML = str;
+  $('#loaderDiv').css('display', 'none')
+  $('#dashboardContainer').css('display', 'block')
+  setFandGMeter()
+  setEUWAXMeter()
+  setVIXMeter()
+  if(window.data.is_buy == false){
+    $('#buyLight').addClass('light-off')
+  }
+  if(window.data.is_sell == false){
+    $('#sellLight').addClass('light-off')
+  }
+});
+})
+  </script>
+
+{% endblock %}

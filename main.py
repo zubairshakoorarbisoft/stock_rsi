@@ -1,5 +1,3 @@
-from email import message
-from statistics import mode
 import requests
 from database import get_database_connection
 import flask
@@ -7,12 +5,29 @@ from flask import render_template, redirect, url_for
 import time, os
 from datetime import datetime as dt, timedelta
 from flask import request
+from fng_index.CNNFearAndGreedIndex import CNNFearAndGreedIndex
 from helper_functions import parse_csv
-from constants import DATABASE, GURUFOCUS_TOKEN
+from constants import (
+    DATABASE,
+    FG_BUY_THRESHOLD_1,
+    FG_BUY_RANGE_1_START,
+    FG_BUY_RANGE_1_END,
+    FG_BUY_RANGE_2_START,
+    FG_BUY_RANGE_2_END,
+    MEAN_DAYS,
+    EUWAX_MIN_VALUE,
+    EUWAX_MAX_VALUE,
+    VIX_THRESHOLD,
+    SELL_FG_MAX_VALUE,
+    SELL_FG_RANGE_START,
+    SELL_FG_RANGE_END,
+    EUWAX_SELL_THRESHOLD
+    )
 
 import json
 import yahoo_fin.stock_info as si
 
+import scrapers
 
 app = flask.Flask(__name__, static_url_path='',
             static_folder='static',
@@ -29,11 +44,13 @@ def get_stock_rsi_settings():
     if(not bool(settings)):
         settings = {
             'id': 0,
-            'days_period_RSL': 130,
-            'moving_average_TSI': 29,
+            'days_period_RSL': 10,
+            'moving_average_TSI': 10,
             'reported_days': 100,
-            'yahoo_price_data_days': 300,
-            'gurufocus_price_data_days': 300
+            'yahoo_price_data_days': 400,
+            'gurufocus_price_data_days': 300,
+            'euwax_url': 'https://www.onvista.de/onvista/times+sales/popup/historische-kurse/?notationId=60782956&dateStart=START_DATE&interval=Y5&assetName=EUWAX%20SENTIMENT%20%20AVERAGE%2012M&exchange=Stuttgart',
+            'vix_url': 'https://de.investing.com/indices/volatility-s-p-500-historical-data'
         }
     else:
         settings = settings[0]
@@ -42,6 +59,13 @@ def get_stock_rsi_settings():
 
 
 @app.route("/")
+def dashboard():
+    return render_template(
+        'dashboard.html'
+    )
+
+
+@app.route("/import")
 def csv_index():
     allow_pull = False
     db_connection = get_database_connection()
@@ -451,18 +475,27 @@ def edit_settings():
         db_connection = get_database_connection()
         cursor = db_connection.cursor(dictionary=True)
         if(int(request.form.get('id')) == 0):
-            sql = f"INSERT INTO {DATABASE}.settings (`days_period_RSL`, `moving_average_TSI`, `reported_days`, `yahoo_price_data_days`, `gurufocus_price_data_days`)"
-            sql = sql + " values(%s, %s, %s, %s, %s)"
+            sql = f"INSERT INTO {DATABASE}.settings (`days_period_RSL`, `moving_average_TSI`, `reported_days`, `yahoo_price_data_days`, `gurufocus_price_data_days`, `euwax_url`, `vix_url`)"
+            sql = sql + " values(%s, %s, %s, %s, %s, %s, %s)"
             val = (
                 int(request.form.get('days_period_RSL')),
                 int(request.form.get('moving_average_TSI')),
                 int(request.form.get('reported_days')),
                 int(request.form.get('yahoo_price_data_days')),
                 int(request.form.get('gurufocus_price_data_days')),
+                request.form.get('euwax_url'),
+                request.form.get('vix_url'),
             )
             cursor.execute(sql, val)
         else:
-            sql = f"UPDATE {DATABASE}.settings SET `days_period_RSL`={request.form.get('days_period_RSL')}, `moving_average_TSI`={request.form.get('moving_average_TSI')}, `reported_days`={request.form.get('reported_days')}, `yahoo_price_data_days`={request.form.get('yahoo_price_data_days')}, `gurufocus_price_data_days`={request.form.get('gurufocus_price_data_days')} WHERE `id`={request.form.get('id')}"
+            sql = f"UPDATE {DATABASE}.settings SET `euwax_url`='{request.form.get('euwax_url')}', \
+                `vix_url`='{request.form.get('vix_url')}',\
+                 `days_period_RSL`={request.form.get('days_period_RSL')},\
+                 `moving_average_TSI`={request.form.get('moving_average_TSI')}, `reported_days`=\
+                     {request.form.get('reported_days')}, `yahoo_price_data_days`=\
+                         {request.form.get('yahoo_price_data_days')}, `gurufocus_price_data_days`=\
+                             {request.form.get('gurufocus_price_data_days')} WHERE `id`=\
+                                 {request.form.get('id')}"
             cursor.execute(sql)
         db_connection.commit()
         db_connection.close()
@@ -743,6 +776,112 @@ def view_all_calculations():
         tsi_calculations=enumerate(tsi_calculations),
         max_ranking_date=max_date['max_date']
     )
+
+
+@app.route("/api/v1/all-history-data", methods=['GET'])
+def get_all_history_data():
+    # Upudating EUWAX and VIX data
+    # scrapers.pull_euwax_history_data()
+    # scrapers.pull_vix_data()
+
+    data = {}
+    db_connection = get_database_connection()
+    cursor = db_connection.cursor(dictionary=True)
+    sixth_previous_month_date = dt.now() - timedelta(days=185)
+    sql = f"SELECT `value`, `created_on` from {DATABASE}.euwax WHERE created_on > '{str(sixth_previous_month_date.date())}' order by created_on ASC"
+    cursor.execute(sql)
+    euwax_data = cursor.fetchall()
+    
+    x_y_axis_data = []
+    for i in euwax_data:
+        x_y_axis_data.append(
+            {
+                "x": i['created_on'].strftime('%d, %b %Y'),
+                "y": i['value']
+            }
+        )
+    data['euwax'] = x_y_axis_data
+    data['euwax_meter'] = x_y_axis_data[-1] if len(euwax_data) > 0 else None
+
+    sql = f"SELECT `value`, `created_on` from {DATABASE}.vix WHERE created_on > '{str(sixth_previous_month_date.date())}' order by created_on ASC"
+    cursor.execute(sql)
+    de_inesting_data = cursor.fetchall()
+    x_y_axis_data = []
+    for i in de_inesting_data:
+        x_y_axis_data.append(
+            {
+                "x": i['created_on'].strftime('%d, %b %Y'),
+                "y": i['value']
+            }
+        )
+    data['vix'] = x_y_axis_data
+    data['vix_meter'] = x_y_axis_data[-1] if len(de_inesting_data) > 0 else None
+
+    sql = f"SELECT `current_value`, `created_on` from {DATABASE}.fear_greed_index WHERE created_on > '{str(sixth_previous_month_date.date())}' order by created_on ASC"
+    cursor.execute(sql)
+    fear_greed_data = cursor.fetchall()
+    x_y_axis_data = []
+    for i in fear_greed_data:
+        x_y_axis_data.append(
+            {
+                "x": i['created_on'].strftime('%d, %b %Y'),
+                "y": i['current_value']
+            }
+        )
+    data['fear_and_greed'] = x_y_axis_data
+    data['fear_and_greed_meter'] = x_y_axis_data[0]
+    cnn_fg = CNNFearAndGreedIndex()
+    data['fg_index_values'] = []
+    for fg in cnn_fg.index_summary.split('\n'):
+        data['fg_index_values'].append(
+            {
+                'day': fg.strip().split(':')[0],
+                'value': fg.strip().split(': ')[1].split(' (')[0],
+                'category': fg.strip().split(' (')[1].split(')')[0]
+            }
+        )
+    
+    data['last_updated_on'] = cnn_fg.get_indicators_report().split('[Updated ')[1].split(']')[0]
+    # Measuring SELL and BUY lights
+    data['is_buy'] = False
+    data['is_sell'] = False
+    #Loop through the array to calculate sum of elements
+    fg_sum_last_x_days = 0
+    for i in range(1, 1 + MEAN_DAYS):
+        fg_sum_last_x_days = fg_sum_last_x_days + data['fear_and_greed'][i]['y']
+    
+    #Loop through the array to calculate sum of elements
+    euwax_sum_last_x_days = 0  
+    for i in range(-2, -2 - MEAN_DAYS, -1):
+        euwax_sum_last_x_days = euwax_sum_last_x_days + data['euwax'][i]['y']
+
+    last_3_days_fg_avg = fg_sum_last_x_days/MEAN_DAYS
+    last_3_days_euwax_avg = euwax_sum_last_x_days/MEAN_DAYS
+    buy_rule_1 = data['fear_and_greed'][0]['y'] < FG_BUY_THRESHOLD_1
+    buy_rule_2 = data['fear_and_greed'][0]['y'] <= FG_BUY_RANGE_1_END and data['fear_and_greed'][0]['y'] >= FG_BUY_RANGE_1_START
+    buy_rule_3 = data['fear_and_greed'][0]['y'] <= FG_BUY_RANGE_2_END and data['fear_and_greed'][0]['y'] >= FG_BUY_RANGE_2_START and data['fear_and_greed'][0]['y'] > last_3_days_fg_avg
+    buy_rule_4 = data['euwax'][-1]['y'] <= EUWAX_MIN_VALUE
+    buy_rule_5 = data['euwax'][-1]['y'] >= EUWAX_MAX_VALUE and data['euwax'][-1]['y'] < last_3_days_euwax_avg
+    buy_rule_6 = data['vix'][-1]['y'] < VIX_THRESHOLD
+    
+    # Applying Buy Rules
+    if(buy_rule_1 or buy_rule_2 or buy_rule_3):
+        if(buy_rule_4 or buy_rule_5):
+            if(buy_rule_6):
+                data['is_buy'] = True
+
+    
+    sell_rule_1 = data['fear_and_greed'][0]['y'] > SELL_FG_MAX_VALUE
+    sell_rule_2 = data['fear_and_greed'][0]['y'] <= SELL_FG_RANGE_END and data['fear_and_greed'][0]['y'] >= SELL_FG_RANGE_START and data['fear_and_greed'][0]['y'] <= last_3_days_fg_avg
+    sell_rule_3 = data['euwax'][-1]['y'] >= EUWAX_SELL_THRESHOLD and data['euwax'][-1]['y'] > last_3_days_euwax_avg
+    sell_rule_4 = data['vix'][-1]['y'] >= VIX_THRESHOLD
+    if(sell_rule_1 or sell_rule_2 or sell_rule_3 or sell_rule_4):
+        data['is_sell'] = True
+
+    db_connection.close()
+    return json.dumps(data)
+
+
 
 
 if __name__ == '__main__':

@@ -28,6 +28,15 @@
                 <label for="gurufocus_price_data_days" class="form-label">Gurufocus Price Data Days</label>
                 <input type="number" class="form-control" name="gurufocus_price_data_days" id="gurufocus_price_data_days" value="{{model['gurufocus_price_data_days']}}">
             </div>
+            <div class="mb-3">
+                <label for="euwax_url" class="form-label">EUWAX URL</label>
+                <input type="text" class="form-control" name="euwax_url" id="euwax_url" value="{{model['euwax_url']}}">
+                <small class="form-text text-danger"><strong>NOTE: </strong>Must add START_DATE as placeholder of start date in url, System will automatically get 1 year old start date</small>
+            </div>
+            <div class="mb-3">
+                <label for="vix_url" class="form-label">VIX URL</label>
+                <input type="text" class="form-control" name="vix_url" id="vix_url" value="{{model['vix_url']}}">
+            </div>
             <button type="submit" class="btn btn-primary">Save</button>
           </form>
     </div>
