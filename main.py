@@ -840,8 +840,7 @@ def get_all_history_data():
                 'category': fg.strip().split(' (')[1].split(')')[0]
             }
         )
-    
-    data['last_updated_on'] = cnn_fg.get_indicators_report().split('[Updated ')[1].split(']')[0]
+    data['last_updated_on'] = cnn_fg.get_indicators_report().split('[Updated ')[-1].split(']')[0]
     # Measuring SELL and BUY lights
     data['is_buy'] = False
     data['is_sell'] = False
