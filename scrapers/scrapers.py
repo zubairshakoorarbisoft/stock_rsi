@@ -57,58 +57,61 @@ def pull_fear_and_gread_index():
     return 'Fear & Greed date scrapped successfully.'
 
 def pull_euwax_history_data():
-    settings = get_stock_rsi_settings()
-    if('START_DATE' in settings['euwax_url']):
-        start_from_date = ''
-        print('Scrapping EUWAX data ...')
-        db_connection = get_database_connection()
-        cursor = db_connection.cursor(dictionary=True)
-        sql = f"SELECT MAX(created_on) last_crawled_on FROM {DATABASE}.euwax"
-        cursor.execute(sql)
-        last_crawled_on = cursor.fetchall()
-        last_crawled_on = last_crawled_on[0]['last_crawled_on']
-        if(last_crawled_on == None):
-            one_year_old_date = dt.now() - timedelta(days=364)
-            start_from_date = f'{one_year_old_date.day}.{one_year_old_date.month}.{one_year_old_date.year}'
+    try:
+        settings = get_stock_rsi_settings()
+        if('START_DATE' in settings['euwax_url']):
+            start_from_date = ''
+            print('Scrapping EUWAX data ...')
+            db_connection = get_database_connection()
+            cursor = db_connection.cursor(dictionary=True)
+            sql = f"SELECT MAX(created_on) last_crawled_on FROM {DATABASE}.euwax"
+            cursor.execute(sql)
+            last_crawled_on = cursor.fetchall()
+            last_crawled_on = last_crawled_on[0]['last_crawled_on']
+            if(last_crawled_on == None):
+                one_year_old_date = dt.now() - timedelta(days=364)
+                start_from_date = f'{one_year_old_date.day}.{one_year_old_date.month}.{one_year_old_date.year}'
+            else:
+                if(last_crawled_on.date() >= dt.now().date()):
+                    print( 'VIX data is already up tp date')
+                    return
+                latest_start_date = last_crawled_on + timedelta(days=1)
+                start_from_date = f'{latest_start_date.day}.{latest_start_date.month}.{latest_start_date.year}'
+            euwax_history_url = settings['euwax_url'].strip().replace('START_DATE', start_from_date)
+            response = get(euwax_history_url)
+            html_soup = BeautifulSoup(response.text, 'html.parser')
+            table_body = html_soup.find('tbody')
+            if(table_body is not None):
+                rows = table_body.find_all('tr')
+                for row in rows:
+                    cols=row.find_all('td')
+                    cols=[x.text.strip() for x in cols]
+                    sql = f"insert into {DATABASE}.euwax (`value`, `created_on`)"
+                    sql = sql+" values(%s,%s)"
+                    date = None
+                    if('.' in cols[0]): # in . format, Day.Month.Year
+                        date = dt(
+                            int(cols[0].split('.')[2]),
+                            int(cols[0].split('.')[1]),
+                            int(cols[0].split('.')[0]),
+                        )
+                    elif('/' in cols[0]): # in / format, Month.Day.Year
+                        date = dt(
+                            int(cols[0].split('/')[2]),
+                            int(cols[0].split('/')[0]),
+                            int(cols[0].split('/')[1])
+                        )
+                    val = (float(cols[1].replace(',', '.')), date,)
+                    cursor.execute(sql, val)
+                db_connection.commit()
+                db_connection.close()
+                print(f'{len(rows)} Day(s) EUWAX Data Scrapped successfully!')
+            else:
+                print('No data available to scrap')
         else:
-            if(last_crawled_on.date() >= dt.now().date()):
-                print( 'VIX data is already up tp date')
-                return
-            latest_start_date = last_crawled_on + timedelta(days=1)
-            start_from_date = f'{latest_start_date.day}.{latest_start_date.month}.{latest_start_date.year}'
-        euwax_history_url = settings['euwax_url'].strip().replace('START_DATE', start_from_date)
-        response = get(euwax_history_url)
-        html_soup = BeautifulSoup(response.text, 'html.parser')
-        table_body = html_soup.find('tbody')
-        if(table_body is not None):
-            rows = table_body.find_all('tr')
-            for row in rows:
-                cols=row.find_all('td')
-                cols=[x.text.strip() for x in cols]
-                sql = f"insert into {DATABASE}.euwax (`value`, `created_on`)"
-                sql = sql+" values(%s,%s)"
-                date = None
-                if('.' in cols[0]): # in . format, Day.Month.Year
-                    date = dt(
-                        int(cols[0].split('.')[2]),
-                        int(cols[0].split('.')[1]),
-                        int(cols[0].split('.')[0]),
-                    )
-                elif('/' in cols[0]): # in / format, Month.Day.Year
-                    date = dt(
-                        int(cols[0].split('/')[2]),
-                        int(cols[0].split('/')[0]),
-                        int(cols[0].split('/')[1])
-                    )
-                val = (float(cols[1].replace(',', '.')), date,)
-                cursor.execute(sql, val)
-            db_connection.commit()
-            db_connection.close()
-            print(f'{len(rows)} Day(s) EUWAX Data Scrapped successfully!')
-        else:
-            print('No data available to scrap')
-    else:
-        print('Could not scrap EUWAX, START_DATE placeholder does not exist in the url')
+            print('Could not scrap EUWAX, START_DATE placeholder does not exist in the url')
+    except Exception as e:
+        print(e)
 
 def pull_vix_data():
     settings = get_stock_rsi_settings()
@@ -129,6 +132,9 @@ def pull_vix_data():
                 print('VIX data is already up tp date')
                 return
             latest_start_date = last_crawled_on + timedelta(days=1)
+            if(latest_start_date.date() == dt.now().date()):
+                print('VIX data is already up tp date')
+                return
             start_from_date = f'{latest_start_date.day}/{latest_start_date.month}/{latest_start_date.year}'
         vix_url = settings['vix_url']
         options = webdriver.ChromeOptions()
