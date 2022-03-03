@@ -15,6 +15,8 @@ from selenium.webdriver.support.select import Select
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from fng_index.CNNFearAndGreedIndex import CNNFearAndGreedIndex
 
 from main import get_stock_rsi_settings
@@ -141,8 +143,7 @@ def pull_vix_data():
         options.add_argument('--ignore-certificate-errors-spki-list')
         options.add_argument('--ignore-ssl-errors')
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        driver = webdriver.Chrome(executable_path='chromedriver.exe', chrome_options=options)
-        driver.get(vix_url)
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), chrome_options=options)        driver.get(vix_url)
         WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, "widgetFieldDateRange")))
         driver.find_element_by_xpath("//*[@id='widgetFieldDateRange']").click()
         start_date_element = driver.find_element_by_xpath("//*[@id='startDate']")

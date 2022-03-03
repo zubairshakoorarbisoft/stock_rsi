@@ -25,7 +25,7 @@ from constants import (
     )
 
 import json
-import yahoo_fin.stock_info as si
+# import yahoo_fin.stock_info as si
 
 import scrapers
 
@@ -781,8 +781,8 @@ def view_all_calculations():
 @app.route("/api/v1/all-history-data", methods=['GET'])
 def get_all_history_data():
     # Upudating EUWAX and VIX data
-    # scrapers.pull_euwax_history_data()
-    # scrapers.pull_vix_data()
+    scrapers.pull_euwax_history_data()
+    scrapers.pull_vix_data()
 
     data = {}
     db_connection = get_database_connection()
